@@ -54,7 +54,7 @@ import kotlinx.serialization.json.put
 
 private val responseJson = Json { ignoreUnknownKeys = true }
 private val systemResponseFields =
-  setOf("id", "request", "responded_at", "responder", "attachment_paths")
+  setOf("type", "types", "id", "request", "responded_at", "responder", "attachment_paths")
 
 @Composable
 internal fun ResponseForm(
@@ -62,10 +62,15 @@ internal fun ResponseForm(
   sending: Boolean,
   onRespond: (PickleRequest, JsonElement) -> Unit,
 ) {
-  val values = remember(request.id) { mutableStateMapOf<String, String>() }
-  var fieldErrors by remember(request.id) { mutableStateOf<Map<String, String>>(emptyMap()) }
   val typeDefinition = request.responseTypeDefinition ?: sampleApprovalTypeDefinition()
   val fields = editableResponseFields(typeDefinition)
+  val values =
+    remember(request.id, request.metadata, typeDefinition) {
+      mutableStateMapOf<String, String>().apply {
+        putAll(initialResponseValues(request, fields))
+      }
+    }
+  var fieldErrors by remember(request.id) { mutableStateOf<Map<String, String>>(emptyMap()) }
 
   fun updateValue(name: String, value: String) {
     values[name] = value
@@ -402,12 +407,130 @@ internal data class ResponseField(
 
 internal fun editableResponseFields(typeDefinition: TypeDefinition): List<ResponseField> {
   val fields =
-    typeDefinition.fields
+    typeDefinition.responseFieldDefinitions()
       .filterKeys { it !in systemResponseFields }
       .filterValues { it.generated == null }
       .map { (name, definition) -> ResponseField(name, definition) }
   return fields.ifEmpty { editableResponseFields(sampleApprovalTypeDefinition()) }
 }
+
+private fun TypeDefinition.responseFieldDefinitions(): Map<String, MdbaseFieldDefinition> {
+  if (fields.isNotEmpty()) return fields
+
+  val rootSchema = schema?.get("value") as? JsonObject ?: return emptyMap()
+  val properties = rootSchema["properties"] as? JsonObject ?: return emptyMap()
+  val required =
+    (rootSchema["required"] as? JsonArray)
+      ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+      ?.toSet()
+      .orEmpty()
+  val links = collection?.get("links") as? JsonObject ?: JsonObject(emptyMap())
+  val generated = lifecycleGeneratedFields(lifecycle)
+
+  return properties.mapValues { (name, definition) ->
+    jsonSchemaField(
+      definition = definition as? JsonObject ?: JsonObject(emptyMap()),
+      required = name in required,
+      link = links[name] as? JsonObject,
+      generated = generated[name],
+    )
+  }
+}
+
+private fun jsonSchemaField(
+  definition: JsonObject,
+  required: Boolean,
+  link: JsonObject?,
+  generated: JsonElement?,
+): MdbaseFieldDefinition {
+  val rawType = (definition["type"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+  val format = (definition["format"] as? JsonPrimitive)?.contentOrNull
+  val enumValues =
+    (definition["enum"] as? JsonArray)
+      ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+      .orEmpty()
+  val fieldType =
+    when {
+      link != null -> "link"
+      enumValues.isNotEmpty() -> "enum"
+      rawType == "array" -> "list"
+      rawType == "object" -> "object"
+      rawType == "string" && format == "date-time" -> "datetime"
+      rawType.isNotEmpty() -> rawType
+      else -> "string"
+    }
+  val nestedRequired =
+    (definition["required"] as? JsonArray)
+      ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+      ?.toSet()
+      .orEmpty()
+  val nestedProperties = definition["properties"] as? JsonObject
+
+  return MdbaseFieldDefinition(
+    fieldType = fieldType,
+    required = required,
+    description = (definition["description"] as? JsonPrimitive)?.contentOrNull,
+    default = definition["default"],
+    generated = generated,
+    values = enumValues,
+    items =
+      (definition["items"] as? JsonObject)?.let {
+        jsonSchemaField(it, required = false, link = null, generated = null)
+      },
+    fields =
+      nestedProperties
+        ?.mapValues { (name, child) ->
+          jsonSchemaField(
+            definition = child as? JsonObject ?: JsonObject(emptyMap()),
+            required = name in nestedRequired,
+            link = null,
+            generated = null,
+          )
+        }
+        .orEmpty(),
+    target = (link?.get("target_type") as? JsonPrimitive)?.contentOrNull,
+    validateExists = (link?.get("validate_exists") as? JsonPrimitive)?.booleanOrNull,
+  )
+}
+
+private fun lifecycleGeneratedFields(lifecycle: JsonObject?): Map<String, JsonElement> {
+  if (lifecycle == null) return emptyMap()
+  val generated = linkedMapOf<String, JsonElement>()
+
+  listOf("on_create", "on_update").forEach { eventName ->
+    val event = lifecycle[eventName]
+    val actions =
+      when (event) {
+        is JsonObject -> listOf(event)
+        is JsonArray -> event.mapNotNull { it as? JsonObject }
+        else -> emptyList()
+      }
+    actions.forEach { action ->
+      val set = action["set"] as? JsonObject ?: return@forEach
+      set.forEach { (field, value) -> generated.putIfAbsent(field, value) }
+    }
+  }
+
+  return generated
+}
+
+internal fun initialResponseValues(request: PickleRequest, fields: List<ResponseField>): Map<String, String> {
+  val metadata = request.metadata as? JsonObject ?: return emptyMap()
+  return fields
+    .mapNotNull { field ->
+      val value = metadata[field.name] ?: return@mapNotNull null
+      val encoded = responseInitialValue(value)
+      if (encoded.isEmpty()) null else field.name to encoded
+    }
+    .toMap()
+}
+
+private fun responseInitialValue(value: JsonElement): String =
+  when (value) {
+    is JsonPrimitive -> value.contentOrNull.orEmpty()
+    is JsonArray,
+    is JsonObject -> value.toString()
+  }
 
 internal fun validateResponseDraft(typeDefinition: TypeDefinition, values: Map<String, String>): DraftValidationResult {
   val fields = editableResponseFields(typeDefinition)

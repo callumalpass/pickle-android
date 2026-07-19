@@ -86,9 +86,14 @@ data class CreateRequestPayload(
 @Serializable
 data class TypeDefinition(
   val name: String,
+  val kind: String? = null,
+  val version: Int? = null,
   val description: String? = null,
   @SerialName("display_name_key") val displayNameKey: String? = null,
   val fields: Map<String, MdbaseFieldDefinition> = emptyMap(),
+  val schema: JsonObject? = null,
+  val collection: JsonObject? = null,
+  val lifecycle: JsonObject? = null,
 )
 
 @Serializable

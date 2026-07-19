@@ -40,13 +40,22 @@ Pickle request JSON includes:
 {
   "response_type": "pickle_response_approval",
   "response_type_definition": {
+    "kind": "mdbase.type",
     "name": "pickle_response_approval",
-    "fields": {}
+    "version": 1,
+    "schema": {
+      "dialect": "json-schema-2020-12",
+      "value": {
+        "type": "object",
+        "properties": {}
+      }
+    }
   }
 }
 ```
 
-The app hides mdbase/system fields such as `request`, `responded_at`, and
-`responder`, then renders editable fields from the remaining mdbase definitions.
-Supported controls include strings, enums, booleans, numbers, objects, and
-lists.
+The app reads v0.3 JSON Schema properties, required fields, collection links,
+and lifecycle-managed fields. It also accepts the v0.2 `fields` grammar while
+collections are migrated. System fields such as `request`, `responded_at`, and
+`responder` are hidden; supported controls include strings, enums, booleans,
+numbers, objects, and lists.
