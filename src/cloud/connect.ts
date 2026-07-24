@@ -14,18 +14,16 @@ export const PICKLE_OPERATIONS = [
 
 const serverUrl =
   import.meta.env.VITE_MDBASE_CONNECT_URL ?? "https://connect.mdbase.dev";
-const manifestUrl =
+const manifest =
   import.meta.env.VITE_MDBASE_MANIFEST_URL ??
-  (Capacitor.isNativePlatform()
-    ? "https://pickle.mdbase.dev/.well-known/mdbase-app.json"
-    : `${location.origin}${joinBase(".well-known/mdbase-app.json")}`);
+  `${location.origin}${joinBase(".well-known/mdbase-app.json")}`;
 const redirectUri = Capacitor.isNativePlatform()
   ? "com.callumalpass.pickle://auth/mdbase/callback"
   : `${location.origin}${joinBase("auth/mdbase/callback")}`;
 
 export const pickleConnect = new MdbaseConnect<PickleFrontmatter>({
   serverUrl,
-  manifestUrl,
+  manifest,
   redirectUri,
   navigate: Capacitor.isNativePlatform()
     ? async (url) => Browser.open({ url })

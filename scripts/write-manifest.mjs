@@ -22,7 +22,8 @@ const target = resolve(
 );
 
 const manifest = {
-  manifest_version: 2,
+  manifest_version: 3,
+  id: "com.callumalpass.pickle",
   name: "Pickle",
   homepage: `${appUrl}/`,
   icon: `${appUrl}/icon.svg`,
