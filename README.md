@@ -15,7 +15,6 @@ Request and response Markdown stays in the selected mdbase collection.
 pnpm install
 pnpm verify
 pnpm cap:sync
-pnpm test:android-smoke
 ```
 
 Use `VITE_MDBASE_CONNECT_URL` and `PICKLE_APP_URL` to point development builds
@@ -24,6 +23,16 @@ at a local mdbase connect control plane and manifest origin.
 The checked-in mdbase packages are deterministic snapshots from the sibling
 `mdbase-connect` workspace. Refresh them after compatible protocol changes.
 
+The native smoke test uses the fixture collection, a connected Android
+emulator, Java 21, and the current gcloud account:
+
+```bash
+VITE_PICKLE_FIXTURE=1 VITE_PICKLE_NOTIFICATION_TEST=1 pnpm cap:sync
+(cd android && ./gradlew test lint assembleDebug)
+pnpm test:android-smoke
+pnpm cap:sync
+```
+
 ## Notifications
 
 Pickle declares `pickle.request.created` in its version 2 mdbase application
@@ -31,9 +40,10 @@ manifest. The collection authority evaluates new-record events and Connect
 sends an opaque FCM wake-up signal. The signal has no request path or content;
 the app refreshes the selected collection after opening.
 
-Native FCM registration requires `android/app/google-services.json`. Keep that
-public Firebase configuration out of ad-hoc development builds until the
-Firebase Android app has been selected.
+The checked-in Firebase configuration binds `com.callumalpass.pickle` to the
+same narrowly authorized sender project used by mdbase Connect. The live
+Android smoke test registers a real token, creates `mdbase-updates`, sends an
+opaque FCM v1 signal, and verifies the foreground refresh.
 
 ## Attachments
 
