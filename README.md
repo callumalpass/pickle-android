@@ -35,8 +35,8 @@ pnpm cap:sync
 
 ## Notifications
 
-Pickle declares `pickle.request.created` in its version 2 mdbase application
-manifest. The collection authority evaluates new-record events and Connect
+Pickle declares `pickle.request.created` in its bundled version 3 mdbase
+application declaration. The collection authority evaluates new-record events and Connect
 sends an opaque FCM wake-up signal. The signal has no request path or content;
 the app refreshes the selected collection after opening.
 
