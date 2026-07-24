@@ -5,12 +5,12 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   use: {
-    baseURL: "http://127.0.0.1:4174",
+    baseURL: "http://127.0.0.1:4198",
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "pnpm dev",
-    url: "http://127.0.0.1:4174",
+    command: "VITE_PICKLE_FIXTURE=1 pnpm dev",
+    url: "http://127.0.0.1:4198",
     reuseExistingServer: true,
   },
   projects: [

@@ -1,7 +1,6 @@
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
-import { PickleCollection } from "@mdbase/pickle";
 import { useCallback, useEffect, useState } from "react";
 
 import markUrl from "./assets/pickle-mark.svg";
@@ -11,11 +10,25 @@ import {
   PICKLE_OPERATIONS,
   pickleConnect,
 } from "./cloud/connect";
+import { FixturePickleRepository } from "./dev/fixture";
+import {
+  ConnectedPickleRepository,
+  type PickleRepository,
+} from "./domain/repository";
+import { pickleNotifications } from "./native/notifications";
+import { PickleApp } from "./ui/pickle-app";
 
-export function App() {
-  const [collection, setCollection] = useState<PickleCollection | null>(() =>
-    pickleConnect.connection() ? new PickleCollection(pickleConnect) : null,
-  );
+interface AppProps {
+  repository?: PickleRepository | null;
+}
+
+export function App({ repository: initialRepository }: AppProps = {}) {
+  const [repository, setRepository] = useState<PickleRepository | null>(() => {
+    if (initialRepository !== undefined) return initialRepository;
+    if (import.meta.env.VITE_PICKLE_FIXTURE === "1")
+      return new FixturePickleRepository();
+    return pickleConnect.connection() ? new ConnectedPickleRepository() : null;
+  });
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
 
@@ -33,7 +46,7 @@ export function App() {
     }
     try {
       await pickleConnect.completeAuthorization(url);
-      setCollection(new PickleCollection(pickleConnect));
+      setRepository(new ConnectedPickleRepository());
       setError(null);
       await finishCallback();
     } catch (reason) {
@@ -60,13 +73,20 @@ export function App() {
     };
   }, [complete]);
 
-  if (collection) {
+  if (repository) {
     return (
-      <main className="opening-screen">
-        <img alt="" src={markUrl} />
-        <p className="eyebrow">Pickle</p>
-        <h1>Opening your inbox</h1>
-      </main>
+      <PickleApp
+        repository={repository}
+        onDisconnect={() => {
+          void pickleNotifications
+            .disable()
+            .catch(() => undefined)
+            .finally(() => {
+              pickleConnect.disconnect();
+              setRepository(null);
+            });
+        }}
+      />
     );
   }
 
