@@ -2,7 +2,7 @@ import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
 import { MdbaseConnect } from "@mdbase/connect";
 
-import type { MdbaseAppManifestV3 } from "@mdbase/connect-protocol";
+import type { MdbaseAppManifest } from "@mdbase/connect-protocol";
 import type { PickleFrontmatter } from "@mdbase/pickle";
 import bundledManifest from "../generated/mdbase-app.json";
 
@@ -18,7 +18,7 @@ const serverUrl =
   import.meta.env.VITE_MDBASE_CONNECT_URL ?? "https://connect.mdbase.dev";
 const manifest =
   import.meta.env.VITE_MDBASE_MANIFEST_URL ??
-  (bundledManifest as MdbaseAppManifestV3);
+  (bundledManifest as MdbaseAppManifest);
 const redirectUri = Capacitor.isNativePlatform()
   ? "com.callumalpass.pickle://auth/mdbase/callback"
   : `${location.origin}${joinBase("auth/mdbase/callback")}`;

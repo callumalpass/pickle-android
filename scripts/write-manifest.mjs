@@ -25,7 +25,7 @@ const targets = [
 ];
 
 const manifest = {
-  manifest_version: 3,
+  manifest_version: 1,
   id: "com.callumalpass.pickle",
   name: "Pickle",
   homepage: `${appUrl}/`,
