@@ -1,5 +1,5 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 1,
   "id": "com.callumalpass.pickle",
   "name": "Pickle",
   "homepage": "https://pickle.mdbase.dev/",
