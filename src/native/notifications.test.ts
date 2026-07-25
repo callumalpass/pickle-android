@@ -14,7 +14,6 @@ vi.mock("@capacitor/push-notifications", () => ({
   PushNotifications: push,
 }));
 
-import { pickleConnect } from "../cloud/connect";
 import {
   PICKLE_NOTIFICATION_CHANNEL,
   PickleNotifications,
@@ -38,15 +37,16 @@ describe("Pickle native notifications", () => {
         return Promise.resolve({ remove: vi.fn() });
       },
     );
-    const register = vi
-      .spyOn(pickleConnect, "registerNativeNotifications")
-      .mockResolvedValue({
-        channelId: "channel-1",
-        installationId: "installation-1",
-        transport: "fcm",
-        criteria: ["pickle.request.created"],
-      });
-    const notifications = new PickleNotifications();
+    const register = vi.fn().mockResolvedValue({
+      channelId: "channel-1",
+      installationId: "installation-1",
+      transport: "fcm",
+      criteria: ["pickle.request.created"],
+    });
+    const notifications = new PickleNotifications(() => ({
+      registerNativeNotifications: register,
+      unregisterNativeNotifications: vi.fn(),
+    }));
 
     await notifications.start(vi.fn());
     await notifications.enable();

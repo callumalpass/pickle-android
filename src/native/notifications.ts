@@ -4,9 +4,10 @@ import {
   type PermissionStatus,
 } from "@capacitor/push-notifications";
 import { parseMdbaseNativeNotificationData } from "@mdbase/connect";
+import type { MdbaseConnection } from "@mdbase/connect";
 import { PICKLE_NOTIFICATION_CRITERION } from "@mdbase/pickle";
 
-import { pickleConnect } from "../cloud/connect";
+import { activePickleConnection } from "../cloud/connect";
 
 export type NotificationState =
   | "unavailable"
@@ -30,6 +31,13 @@ export class PickleNotifications {
   private state: NotificationState = Capacitor.isNativePlatform()
     ? "off"
     : "unavailable";
+
+  constructor(
+    private readonly connection: () => Pick<
+      MdbaseConnection,
+      "registerNativeNotifications" | "unregisterNativeNotifications"
+    > | null = activePickleConnection,
+  ) {}
 
   current(): NotificationState {
     return this.state;
@@ -93,7 +101,7 @@ export class PickleNotifications {
 
   async disable(): Promise<void> {
     if (!Capacitor.isNativePlatform()) return;
-    await pickleConnect.unregisterNativeNotifications();
+    await this.connection()?.unregisterNativeNotifications();
     await PushNotifications.unregister();
     localStorage.setItem(PREFERENCE_KEY, "false");
     this.setState("off");
@@ -121,7 +129,9 @@ export class PickleNotifications {
         this.setState("enabled");
         return;
       }
-      await pickleConnect.registerNativeNotifications({
+      const connection = this.connection();
+      if (!connection) throw new Error("Pickle is not connected.");
+      await connection.registerNativeNotifications({
         token,
         criteria: [PICKLE_NOTIFICATION_CRITERION],
       });

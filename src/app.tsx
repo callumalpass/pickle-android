@@ -5,10 +5,15 @@ import { useCallback, useEffect, useState } from "react";
 
 import markUrl from "./assets/pickle-mark.svg";
 import {
+  activePickleConnection,
+  authorizationReturnTo,
   cleanCallbackUrl,
+  finishAuthorization,
   isMdbaseCallback,
   PICKLE_OPERATIONS,
   pickleConnect,
+  savedPickleConnections,
+  selectPickleConnection,
 } from "./cloud/connect";
 import { FixturePickleRepository } from "./dev/fixture";
 import {
@@ -27,32 +32,24 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     if (initialRepository !== undefined) return initialRepository;
     if (import.meta.env.VITE_PICKLE_FIXTURE === "1")
       return new FixturePickleRepository();
-    return pickleConnect.connection() ? new ConnectedPickleRepository() : null;
+    const connection = activePickleConnection();
+    return connection ? new ConnectedPickleRepository(connection) : null;
   });
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
 
   const complete = useCallback(async (url: string) => {
     if (!isMdbaseCallback(url)) return;
-    const callback = new URL(url);
-    const denied = callback.searchParams.get("error");
-    if (denied) {
-      setError(
-        callback.searchParams.get("error_description") ??
-          "Collection access was not approved.",
-      );
-      await finishCallback();
-      return;
-    }
     try {
-      await pickleConnect.completeAuthorization(url);
-      setRepository(new ConnectedPickleRepository());
+      const result = await pickleConnect.completeAuthorization(url);
+      const connection = finishAuthorization(result);
+      setRepository(new ConnectedPickleRepository(connection));
       setError(null);
-      await finishCallback();
     } catch (reason) {
       setError(message(reason));
     } finally {
       setOpening(false);
+      await finishCallback();
     }
   }, []);
 
@@ -77,12 +74,13 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     return (
       <PickleApp
         repository={repository}
+        onChangeCollection={() => setRepository(null)}
         onDisconnect={() => {
           void pickleNotifications
             .disable()
             .catch(() => undefined)
             .finally(() => {
-              pickleConnect.disconnect();
+              activePickleConnection()?.forget();
               setRepository(null);
             });
         }}
@@ -93,10 +91,17 @@ export function App({ repository: initialRepository }: AppProps = {}) {
   function connect() {
     setOpening(true);
     setError(null);
-    void pickleConnect.authorize([...PICKLE_OPERATIONS]).catch((reason) => {
-      setOpening(false);
-      setError(message(reason));
-    });
+    void pickleConnect
+      .authorize({
+        operations: [...PICKLE_OPERATIONS],
+        collectionId:
+          new URL(location.href).searchParams.get("collection") ?? undefined,
+        returnTo: authorizationReturnTo(),
+      })
+      .catch((reason) => {
+        setOpening(false);
+        setError(message(reason));
+      });
   }
 
   return (
@@ -116,13 +121,34 @@ export function App({ repository: initialRepository }: AppProps = {}) {
         </p>
       ) : null}
       <div className="connection-actions">
+        {savedPickleConnections().map((connection) => (
+          <button
+            key={connection.collectionId}
+            className="outline-action"
+            type="button"
+            onClick={() => {
+              selectPickleConnection(connection.collectionId, true);
+              const selected = pickleConnect.connection(
+                connection.collectionId,
+              );
+              if (selected)
+                setRepository(new ConnectedPickleRepository(selected));
+            }}
+          >
+            Open {connection.displayName}
+          </button>
+        ))}
         <button
           className="outline-action"
           disabled={opening}
           type="button"
           onClick={connect}
         >
-          {opening ? "Opening mdbase…" : "Continue to mdbase"}
+          {opening
+            ? "Opening mdbase…"
+            : savedPickleConnections().length
+              ? "Connect another collection"
+              : "Continue to mdbase"}
         </button>
         <small>
           Pickle never asks for a server address, collection path, or network

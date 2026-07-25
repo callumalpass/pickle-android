@@ -1,8 +1,7 @@
-import type { JsonObject } from "@mdbase/connect";
+import type { JsonObject, MdbaseConnection } from "@mdbase/connect";
 import type { PickleRequest } from "@mdbase/pickle";
 import { PickleCollection } from "@mdbase/pickle";
-
-import { pickleConnect } from "../cloud/connect";
+import type { PickleFrontmatter } from "@mdbase/pickle";
 
 export interface PickleRepository {
   readonly collectionId: string;
@@ -15,14 +14,14 @@ export interface PickleRepository {
 export class ConnectedPickleRepository implements PickleRepository {
   readonly collectionId: string;
   readonly route: "hosted" | "direct" | "relay";
-  private readonly collection = new PickleCollection(pickleConnect);
+  private readonly collection: PickleCollection;
 
-  constructor() {
-    const connection = pickleConnect.connection();
-    if (!connection)
-      throw new Error("Pickle is not connected to a collection.");
+  constructor(
+    private readonly connection: MdbaseConnection<PickleFrontmatter>,
+  ) {
+    this.collection = new PickleCollection(connection);
     this.collectionId = connection.collectionId;
-    this.route = connection.route;
+    this.route = connection.info()?.route ?? "relay";
   }
 
   list(): Promise<PickleRequest[]> {
@@ -37,7 +36,7 @@ export class ConnectedPickleRepository implements PickleRepository {
     const controller = new AbortController();
     void (async () => {
       try {
-        for await (const change of pickleConnect.watch({
+        for await (const change of this.connection.watch({
           signal: controller.signal,
           pollIntervalMs: 1_500,
           retry: {
