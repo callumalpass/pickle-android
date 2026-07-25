@@ -75,9 +75,12 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     if (
       initialRepository !== undefined ||
       import.meta.env.VITE_PICKLE_FIXTURE === "1"
-    ) return;
+    )
+      return;
     return onPickleConnectionChange((connection) => {
-      setRepository(connection ? new ConnectedPickleRepository(connection) : null);
+      setRepository(
+        connection ? new ConnectedPickleRepository(connection) : null,
+      );
     });
   }, [initialRepository]);
 
