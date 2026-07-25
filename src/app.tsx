@@ -8,11 +8,13 @@ import {
   activePickleConnection,
   authorizationReturnTo,
   cleanCallbackUrl,
-  finishAuthorization,
+  completePickleAuthorization,
   isMdbaseCallback,
+  onPickleConnectionChange,
   PICKLE_OPERATIONS,
   pickleConnect,
   savedPickleConnections,
+  selectedPickleCollectionId,
   selectPickleConnection,
 } from "./cloud/connect";
 import { FixturePickleRepository } from "./dev/fixture";
@@ -41,8 +43,7 @@ export function App({ repository: initialRepository }: AppProps = {}) {
   const complete = useCallback(async (url: string) => {
     if (!isMdbaseCallback(url)) return;
     try {
-      const result = await pickleConnect.completeAuthorization(url);
-      const connection = finishAuthorization(result);
+      const connection = await completePickleAuthorization(url);
       setRepository(new ConnectedPickleRepository(connection));
       setError(null);
     } catch (reason) {
@@ -70,6 +71,19 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     };
   }, [complete]);
 
+  useEffect(() => {
+    if (
+      initialRepository !== undefined ||
+      import.meta.env.VITE_PICKLE_FIXTURE === "1"
+    )
+      return;
+    return onPickleConnectionChange((connection) => {
+      setRepository(
+        connection ? new ConnectedPickleRepository(connection) : null,
+      );
+    });
+  }, [initialRepository]);
+
   if (repository) {
     return (
       <PickleApp
@@ -94,8 +108,7 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     void pickleConnect
       .authorize({
         operations: [...PICKLE_OPERATIONS],
-        collectionId:
-          new URL(location.href).searchParams.get("collection") ?? undefined,
+        collectionId: selectedPickleCollectionId() ?? undefined,
         returnTo: authorizationReturnTo(),
       })
       .catch((reason) => {

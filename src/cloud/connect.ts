@@ -1,8 +1,8 @@
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
 import {
+  MdbaseBrowserLocation,
   MdbaseConnect,
-  type MdbaseAuthorizationResult,
   type MdbaseConnection,
   type MdbaseConnectionInfo,
 } from "@mdbase/connect";
@@ -37,73 +37,51 @@ export const pickleConnect = new MdbaseConnect<PickleFrontmatter>({
     : undefined,
 });
 
-const COLLECTION_PARAMETER = "collection";
+const pickleLocation = new MdbaseBrowserLocation(pickleConnect, {
+  fallbackPath: joinBase(""),
+});
 
 export function savedPickleConnections(): MdbaseConnectionInfo[] {
   return pickleConnect.connections();
 }
 
 export function activePickleConnection(): MdbaseConnection<PickleFrontmatter> | null {
-  const selected = new URL(location.href).searchParams.get(
-    COLLECTION_PARAMETER,
-  );
-  if (selected) return pickleConnect.connection(selected);
-  const saved = pickleConnect.connections();
-  if (saved.length !== 1) return null;
-  selectPickleConnection(saved[0].collectionId, true);
-  return pickleConnect.connection(saved[0].collectionId);
+  return pickleLocation.activeConnection();
 }
 
 export function selectPickleConnection(
   collectionId: string,
   replace = false,
 ): void {
-  const url = cleanAuthorizationParameters(new URL(location.href));
-  url.searchParams.set(COLLECTION_PARAMETER, collectionId);
-  history[replace ? "replaceState" : "pushState"](null, "", url);
+  pickleLocation.selectConnection(collectionId, { replace });
 }
 
 export function authorizationReturnTo(): string {
-  const url = cleanAuthorizationParameters(new URL(location.href));
-  return `${url.pathname}${url.search}${url.hash}`;
+  return pickleLocation.authorizationReturnTo();
 }
 
-export function finishAuthorization(
-  result: MdbaseAuthorizationResult<PickleFrontmatter>,
-): MdbaseConnection<PickleFrontmatter> {
-  const returnTo = cleanAuthorizationParameters(
-    new URL(result.returnTo ?? joinBase(""), location.origin),
-  );
-  returnTo.searchParams.set(
-    COLLECTION_PARAMETER,
-    result.connection.collectionId,
-  );
-  history.replaceState(null, "", returnTo);
-  return result.connection;
+export function completePickleAuthorization(
+  callbackUrl: string,
+): Promise<MdbaseConnection<PickleFrontmatter>> {
+  return pickleLocation.completeAuthorization(callbackUrl);
 }
 
 export function isMdbaseCallback(value: string): boolean {
-  const url = new URL(value);
-  return (
-    url.searchParams.has("code") ||
-    url.searchParams.has("error") ||
-    url.protocol === "com.callumalpass.pickle:"
-  );
+  return pickleLocation.isAuthorizationCallback(value);
 }
 
 export function cleanCallbackUrl(): void {
-  history.replaceState(
-    null,
-    "",
-    cleanAuthorizationParameters(new URL(location.href)),
-  );
+  pickleLocation.clearAuthorizationCallback();
 }
 
-function cleanAuthorizationParameters(url: URL): URL {
-  for (const parameter of ["code", "state", "error", "error_description"]) {
-    url.searchParams.delete(parameter);
-  }
-  return url;
+export function selectedPickleCollectionId(): string | null {
+  return pickleLocation.selectedCollectionId();
+}
+
+export function onPickleConnectionChange(
+  listener: (connection: MdbaseConnection<PickleFrontmatter> | null) => void,
+): () => void {
+  return pickleLocation.onChange(({ connection }) => listener(connection));
 }
 
 function joinBase(path: string): string {
