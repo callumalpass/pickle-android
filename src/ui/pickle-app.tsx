@@ -41,10 +41,15 @@ type View = "inbox" | "history" | "settings";
 
 interface PickleAppProps {
   repository: PickleRepository;
+  onChangeCollection?: () => void;
   onDisconnect: () => void;
 }
 
-export function PickleApp({ repository, onDisconnect }: PickleAppProps) {
+export function PickleApp({
+  repository,
+  onChangeCollection,
+  onDisconnect,
+}: PickleAppProps) {
   const [requests, setRequests] = useState<PickleRequest[]>([]);
   const [view, setView] = useState<View>("inbox");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -162,7 +167,11 @@ export function PickleApp({ repository, onDisconnect }: PickleAppProps) {
 
       <main className="workspace">
         {view === "settings" ? (
-          <SettingsView repository={repository} onDisconnect={onDisconnect} />
+          <SettingsView
+            repository={repository}
+            onChangeCollection={onChangeCollection}
+            onDisconnect={onDisconnect}
+          />
         ) : (
           <section className={`request-pane ${selected ? "detail-open" : ""}`}>
             <div className="request-list-pane">
@@ -558,9 +567,11 @@ function ResponseReceipt({ request }: { request: PickleRequest }) {
 
 function SettingsView({
   repository,
+  onChangeCollection,
   onDisconnect,
 }: {
   repository: PickleRepository;
+  onChangeCollection?: () => void;
   onDisconnect: () => void;
 }) {
   const [theme, setTheme] = useState<Theme>(() => currentTheme());
@@ -666,6 +677,16 @@ function SettingsView({
               </dd>
             </div>
           </dl>
+          {onChangeCollection ? (
+            <button
+              className="disconnect-action"
+              type="button"
+              onClick={onChangeCollection}
+            >
+              <LogOut size={17} />
+              Open another collection
+            </button>
+          ) : null}
           <button
             className="disconnect-action"
             type="button"
