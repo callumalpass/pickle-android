@@ -13,13 +13,16 @@ const appUrl = (
   process.env.PICKLE_APP_URL ??
   (development ? "http://127.0.0.1:4198" : "https://pickle.mdbase.dev")
 ).replace(/\/$/, "");
-const target = resolve(
-  import.meta.dirname,
-  "..",
-  "public",
-  ".well-known",
-  "mdbase-app.json",
-);
+const targets = [
+  resolve(
+    import.meta.dirname,
+    "..",
+    "public",
+    ".well-known",
+    "mdbase-app.json",
+  ),
+  resolve(import.meta.dirname, "..", "src", "generated", "mdbase-app.json"),
+];
 
 const manifest = {
   manifest_version: 3,
@@ -60,5 +63,10 @@ const manifest = {
   },
 };
 
-await mkdir(resolve(target, ".."), { recursive: true });
-await writeFile(target, `${JSON.stringify(manifest, null, 2)}\n`);
+const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
+await Promise.all(
+  targets.map(async (target) => {
+    await mkdir(resolve(target, ".."), { recursive: true });
+    await writeFile(target, serialized);
+  }),
+);
