@@ -1,61 +1,52 @@
-# Pickle Android
+# Pickle
 
-Native Android client for the local Pickle inbox.
+Pickle is a quiet mobile inbox for durable agent requests and human decisions.
+The web-first application is packaged for Android with Capacitor and uses
+mdbase connect for authorization, collection operations, live updates, and
+managed notifications.
 
-The app connects to the Rust Pickle server over a private URL, usually Tailscale,
-and renders request response forms from each request's mdbase
-`response_type_definition`. It no longer depends on the old JSON Schema request
-field.
+There is no Pickle server URL, bearer-token field, Tailscale connection,
+foreground polling service, local collection, or offline record replica.
+Request and response Markdown stays in the selected mdbase collection.
 
 ## Development
 
 ```bash
-./gradlew testDebugUnitTest
-./gradlew assembleDebug
-./gradlew lintDebug
+pnpm install
+pnpm verify
+pnpm cap:sync
 ```
 
-For an emulator, use:
+Use `VITE_MDBASE_CONNECT_URL` and `PICKLE_APP_URL` to point development builds
+at a local mdbase connect control plane and manifest origin.
 
-```text
-http://10.0.2.2:8787
-```
+The checked-in mdbase packages are deterministic snapshots from the sibling
+`mdbase-connect` workspace. Refresh them after compatible protocol changes.
 
-For a phone on Tailscale, use the host Tailnet name or Tailscale IP, plus the
-token from:
+The native smoke test uses the fixture collection, a connected Android
+emulator, Java 21, and the current gcloud account:
 
 ```bash
-pickle token
+VITE_PICKLE_FIXTURE=1 VITE_PICKLE_NOTIFICATION_TEST=1 pnpm cap:sync
+(cd android && ./gradlew test lint assembleDebug)
+pnpm test:android-smoke
+pnpm cap:sync
 ```
 
-The optional collection setting maps to the server's `X-Pickle-Collection`
-header. Leave it blank to use the server default, or set it to a configured
-collection such as `tasknotes`.
+## Notifications
 
-## Response Forms
+Pickle declares `pickle.request.created` in its bundled version 3 mdbase
+application declaration. The collection authority evaluates new-record events and Connect
+sends an opaque FCM wake-up signal. The signal has no request path or content;
+the app refreshes the selected collection after opening.
 
-Pickle request JSON includes:
+The checked-in Firebase configuration binds `com.callumalpass.pickle` to the
+same narrowly authorized sender project used by mdbase Connect. The live
+Android smoke test registers a real token, creates `mdbase-updates`, sends an
+opaque FCM v1 signal, and verifies the foreground refresh.
 
-```json
-{
-  "response_type": "pickle_response_approval",
-  "response_type_definition": {
-    "kind": "mdbase.type",
-    "name": "pickle_response_approval",
-    "version": 1,
-    "schema": {
-      "dialect": "json-schema-2020-12",
-      "value": {
-        "type": "object",
-        "properties": {}
-      }
-    }
-  }
-}
-```
+## Attachments
 
-The app reads v0.3 JSON Schema properties, required fields, collection links,
-and lifecycle-managed fields. It also accepts the v0.2 `fields` grammar while
-collections are migrated. System fields such as `request`, `responded_at`, and
-`responder` are hidden; supported controls include strings, enums, booleans,
-numbers, objects, and lists.
+Attachment paths are displayed as part of the durable request record. Binary
+preview and download controls can be added when mdbase connect exposes binary
+collection operations without changing the Pickle protocol or app structure.

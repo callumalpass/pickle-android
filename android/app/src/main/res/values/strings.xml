@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pickle</string>
+    <string name="title_activity_main">Pickle</string>
+    <string name="package_name">com.callumalpass.pickle</string>
+    <string name="custom_url_scheme">com.callumalpass.pickle</string>
+</resources>
