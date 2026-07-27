@@ -5,7 +5,7 @@ import type { PickleFrontmatter } from "@mdbase/pickle";
 
 export interface PickleRepository {
   readonly collectionId: string;
-  readonly route: "hosted" | "direct" | "relay" | "fixture";
+  readonly route: "remote" | "direct" | "relay" | "fixture";
   list(): Promise<PickleRequest[]>;
   respond(request: PickleRequest, payload: JsonObject): Promise<void>;
   subscribe(onChange: () => void): () => void;
@@ -13,7 +13,7 @@ export interface PickleRepository {
 
 export class ConnectedPickleRepository implements PickleRepository {
   readonly collectionId: string;
-  readonly route: "hosted" | "direct" | "relay";
+  readonly route: "remote" | "direct" | "relay";
   private readonly collection: PickleCollection;
 
   constructor(

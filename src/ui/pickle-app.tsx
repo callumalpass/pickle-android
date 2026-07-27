@@ -670,7 +670,7 @@ function SettingsView({
           </div>
           <dl className="connection-facts">
             <div>
-              <dt>{repository.route === "hosted" ? <Cloud /> : <Monitor />}</dt>
+              <dt>{repository.route === "remote" ? <Cloud /> : <Monitor />}</dt>
               <dd>
                 <strong>{routeLabel(repository.route)}</strong>
                 <span>{repository.collectionId}</span>
@@ -779,7 +779,7 @@ function notificationDescription(state: NotificationState): string {
 }
 
 function routeLabel(route: PickleRepository["route"]): string {
-  if (route === "hosted") return "mdbase cloud";
+  if (route === "remote") return "mdbase cloud";
   if (route === "direct") return "Local mdbase connector";
   if (route === "relay") return "mdbase connect relay";
   return "Interface test collection";
