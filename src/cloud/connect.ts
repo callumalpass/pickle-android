@@ -78,6 +78,12 @@ export function selectedPickleCollectionId(): string | null {
   return pickleLocation.selectedCollectionId();
 }
 
+export function clearPickleSelection(): void {
+  const url = new URL(location.href);
+  url.searchParams.delete("collection");
+  history.replaceState(history.state, "", url);
+}
+
 export function onPickleConnectionChange(
   listener: (connection: MdbaseConnection<PickleFrontmatter> | null) => void,
 ): () => void {

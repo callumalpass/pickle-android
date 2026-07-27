@@ -74,6 +74,11 @@ describe("Pickle inbox", () => {
       />,
     );
     await screen.findByText("Approve production deployment");
+    expect(
+      screen.getByRole("button", { name: "Inbox, 4 unresolved" }),
+    ).toBeVisible();
+    expect(screen.getByText("Needs attention")).toBeVisible();
+    expect(screen.getByText("Ready to answer")).toBeVisible();
 
     fireEvent.change(
       screen.getByPlaceholderText("Search title, source, or tag"),
@@ -84,11 +89,24 @@ describe("Pickle inbox", () => {
     expect(screen.getByText("Replace the empty inbox copy")).toBeVisible();
     expect(screen.queryByText("Approve production deployment")).toBeNull();
 
+    fireEvent.change(
+      screen.getByPlaceholderText("Search title, source, or tag"),
+      {
+        target: { value: "" },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Conflicting environment choice/,
+      }),
+    );
+    expect(screen.getByText("Conflicting responses")).toBeVisible();
+
     fireEvent.click(screen.getByRole("button", { name: "History" }));
     expect(
       await screen.findByText("Documentation review complete"),
     ).toBeVisible();
-    expect(screen.getByText("Conflicting environment choice")).toBeVisible();
+    expect(screen.queryByText("Conflicting environment choice")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     fireEvent.click(screen.getByRole("button", { name: "Dark" }));

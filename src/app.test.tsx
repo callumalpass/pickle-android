@@ -1,9 +1,16 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./app";
+import { FixturePickleRepository } from "./dev/fixture";
 
 describe("Pickle connection", () => {
+  afterEach(() => {
+    localStorage.clear();
+    history.replaceState(null, "", "/");
+    vi.restoreAllMocks();
+  });
+
   it("starts with one mdbase connection action and no server settings", () => {
     render(<App />);
 
@@ -14,5 +21,20 @@ describe("Pickle connection", () => {
       screen.getByRole("button", { name: "Continue to mdbase" }),
     ).toBeVisible();
     expect(screen.queryByLabelText(/server|token|tailscale/i)).toBeNull();
+  });
+
+  it("clears the bookmarked collection before opening another one", () => {
+    history.replaceState(null, "", "/?collection=old-collection");
+    render(<App repository={new FixturePickleRepository()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open another collection" }),
+    );
+
+    expect(location.search).toBe("");
+    expect(
+      screen.getByRole("heading", { name: "Open your decision inbox." }),
+    ).toBeVisible();
   });
 });

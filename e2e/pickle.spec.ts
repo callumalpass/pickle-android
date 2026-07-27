@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("reviews and approves a request", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Requests" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inbox" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: /Approve production deployment/ }),
   ).toBeVisible();
@@ -37,12 +37,20 @@ test("uses collection-defined forms and history", async ({ page }) => {
     page.locator(".response-receipt").getByText("preview", { exact: true }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "History" }).click();
-  await expect(page.getByText("Documentation review complete")).toBeVisible();
+  const backToRequests = page.getByRole("button", {
+    name: "Back to requests",
+  });
+  if (await backToRequests.isVisible()) await backToRequests.click();
   await page
     .getByRole("button", { name: /Conflicting environment choice/ })
     .click();
   await expect(page.getByText("Conflicting responses")).toBeVisible();
+
+  await page.getByRole("button", { name: "History" }).click();
+  await expect(page.getByText("Documentation review complete")).toBeVisible();
+  await expect(
+    page.getByText("Conflicting environment choice"),
+  ).not.toBeVisible();
 });
 
 test("supports responsive navigation, search, and themes", async ({ page }) => {
@@ -61,4 +69,40 @@ test("supports responsive navigation, search, and themes", async ({ page }) => {
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("keeps long request details inside the phone viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: /Approve production deployment/ })
+    .click();
+
+  const unbrokenText = "collectionidentifier".repeat(40);
+  await page.locator(".detail-title .eyebrow").evaluate((element, value) => {
+    element.textContent = value;
+  }, unbrokenText);
+  await page
+    .locator(".plain-markdown p")
+    .first()
+    .evaluate((element, value) => {
+      element.textContent = value;
+    }, unbrokenText);
+  await page
+    .locator(".resource-list span")
+    .first()
+    .evaluate((element, value) => {
+      element.textContent = value;
+    }, unbrokenText);
+
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  const navigation = await page.getByRole("navigation", { name: "Primary" });
+  await expect(navigation).toBeInViewport();
+  await expect(navigation).toHaveCSS("width", "320px");
 });

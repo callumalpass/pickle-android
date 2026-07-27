@@ -39,6 +39,13 @@ import { applyTheme, currentTheme, type Theme } from "./theme";
 
 type View = "inbox" | "history" | "settings";
 
+interface RequestGroup {
+  id: string;
+  label: string;
+  description: string;
+  requests: PickleRequest[];
+}
+
 interface PickleAppProps {
   repository: PickleRepository;
   onChangeCollection?: () => void;
@@ -124,12 +131,12 @@ export function PickleApp({
 
   const visibleRequests = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
-    return requests.filter((request) => {
+    const matching = requests.filter((request) => {
       const belongs =
         view === "inbox"
           ? request.state === "pending" || request.state === "conflict"
           : view === "history"
-            ? request.state !== "pending"
+            ? request.state === "answered" || request.state === "cancelled"
             : false;
       return (
         belongs &&
@@ -144,12 +151,55 @@ export function PickleApp({
           ))
       );
     });
+    return view === "inbox" ? matching.sort(compareInboxRequests) : matching;
   }, [query, requests, view]);
+  const requestGroups = useMemo<RequestGroup[]>(() => {
+    if (view === "history") {
+      return [
+        {
+          id: "history",
+          label: "Completed record",
+          description: "Answered and cancelled",
+          requests: visibleRequests,
+        },
+      ];
+    }
+    const conflicts = visibleRequests.filter(
+      (request) => request.state === "conflict",
+    );
+    const pending = visibleRequests.filter(
+      (request) => request.state === "pending",
+    );
+    return [
+      {
+        id: "attention",
+        label: "Needs attention",
+        description: "Resolve in the collection",
+        requests: conflicts,
+      },
+      {
+        id: "ready",
+        label: "Ready to answer",
+        description: "Ordered by urgency",
+        requests: pending,
+      },
+    ].filter((group) => group.requests.length);
+  }, [view, visibleRequests]);
   const selected =
     requests.find((request) => request.id === selectedId) ?? null;
   const pendingCount = requests.filter(
     (request) => request.state === "pending",
   ).length;
+  const conflictCount = requests.filter(
+    (request) => request.state === "conflict",
+  ).length;
+  const answeredCount = requests.filter(
+    (request) => request.state === "answered",
+  ).length;
+  const cancelledCount = requests.filter(
+    (request) => request.state === "cancelled",
+  ).length;
+  const inboxCount = pendingCount + conflictCount;
 
   function navigate(next: View) {
     setView(next);
@@ -159,11 +209,7 @@ export function PickleApp({
 
   return (
     <div className={`app-frame ${selected ? "has-detail" : ""}`}>
-      <Navigation
-        pendingCount={pendingCount}
-        view={view}
-        onNavigate={navigate}
-      />
+      <Navigation inboxCount={inboxCount} view={view} onNavigate={navigate} />
 
       <main className="workspace">
         {view === "settings" ? (
@@ -178,9 +224,14 @@ export function PickleApp({
               <header className="page-header">
                 <div>
                   <p className="eyebrow">
-                    {view === "inbox" ? "Decision inbox" : "Record"}
+                    {view === "inbox" ? "Decision queue" : "Decision record"}
                   </p>
-                  <h1>{view === "inbox" ? "Requests" : "History"}</h1>
+                  <h1>{view === "inbox" ? "Inbox" : "History"}</h1>
+                  <p className="page-status">
+                    {view === "inbox"
+                      ? inboxSummary(pendingCount, conflictCount)
+                      : historySummary(answeredCount, cancelledCount)}
+                  </p>
                 </div>
                 <button
                   aria-label="Refresh requests"
@@ -221,14 +272,33 @@ export function PickleApp({
               ) : loading ? (
                 <LoadingRows />
               ) : visibleRequests.length ? (
-                <div className="request-list">
-                  {visibleRequests.map((request) => (
-                    <RequestRow
-                      key={request.id}
-                      request={request}
-                      selected={request.id === selectedId}
-                      onSelect={() => setSelectedId(request.id)}
-                    />
+                <div className="request-groups">
+                  {requestGroups.map((group) => (
+                    <section
+                      key={group.id}
+                      className={`request-group request-group-${group.id}`}
+                      aria-labelledby={`${group.id}-heading`}
+                    >
+                      <header className="request-group-heading">
+                        <div>
+                          <h2 id={`${group.id}-heading`}>{group.label}</h2>
+                          <p>{group.description}</p>
+                        </div>
+                        <span aria-label={`${group.requests.length} requests`}>
+                          {group.requests.length}
+                        </span>
+                      </header>
+                      <div className="request-list">
+                        {group.requests.map((request) => (
+                          <RequestRow
+                            key={request.id}
+                            request={request}
+                            selected={request.id === selectedId}
+                            onSelect={() => setSelectedId(request.id)}
+                          />
+                        ))}
+                      </div>
+                    </section>
                   ))}
                 </div>
               ) : (
@@ -275,11 +345,11 @@ export function PickleApp({
 
 interface NavigationProps {
   view: View;
-  pendingCount: number;
+  inboxCount: number;
   onNavigate: (view: View) => void;
 }
 
-function Navigation({ view, pendingCount, onNavigate }: NavigationProps) {
+function Navigation({ view, inboxCount, onNavigate }: NavigationProps) {
   const items = [
     { id: "inbox" as const, label: "Inbox", icon: Inbox },
     { id: "history" as const, label: "History", icon: HistoryIcon },
@@ -296,6 +366,11 @@ function Navigation({ view, pendingCount, onNavigate }: NavigationProps) {
         return (
           <button
             key={item.id}
+            aria-label={
+              item.id === "inbox" && inboxCount
+                ? `Inbox, ${inboxCount} unresolved`
+                : item.label
+            }
             aria-current={view === item.id ? "page" : undefined}
             className="nav-item"
             type="button"
@@ -303,8 +378,10 @@ function Navigation({ view, pendingCount, onNavigate }: NavigationProps) {
           >
             <span className="nav-icon">
               <Icon size={20} />
-              {item.id === "inbox" && pendingCount ? (
-                <span className="nav-count">{Math.min(pendingCount, 99)}</span>
+              {item.id === "inbox" && inboxCount ? (
+                <span aria-hidden="true" className="nav-count">
+                  {Math.min(inboxCount, 99)}
+                </span>
               ) : null}
             </span>
             <span>{item.label}</span>
@@ -333,21 +410,24 @@ function RequestRow({
     >
       <StateMark state={request.state} />
       <span className="request-row-copy">
-        <span className="request-row-topline">
-          <strong>{request.title}</strong>
+        <span className="request-kicker">
+          <span>{request.source || "Unknown source"}</span>
           <time dateTime={request.createdAt}>
             {relativeDate(request.createdAt)}
           </time>
         </span>
+        <strong className="request-title">{request.title}</strong>
         <span className="request-message">
           {request.message || request.body || "No request message"}
         </span>
         <span className="request-metadata">
-          <span>{request.source}</span>
           {request.priority !== "normal" ? (
             <span className={`priority priority-${request.priority}`}>
               {request.priority}
             </span>
+          ) : null}
+          {request.dueAt ? (
+            <span className="due-date">Due {relativeDate(request.dueAt)}</span>
           ) : null}
           {request.tags.slice(0, 2).map((tag) => (
             <span key={tag}>#{tag}</span>
@@ -783,6 +863,57 @@ function routeLabel(route: PickleRepository["route"]): string {
   if (route === "direct") return "Local mdbase connector";
   if (route === "relay") return "mdbase connect relay";
   return "Interface test collection";
+}
+
+function inboxSummary(pending: number, conflicts: number): string {
+  if (!pending && !conflicts) return "No unresolved requests";
+  return [
+    pending ? `${pending} ready to answer` : "",
+    conflicts
+      ? `${conflicts} ${conflicts === 1 ? "needs" : "need"} attention`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function historySummary(answered: number, cancelled: number): string {
+  if (!answered && !cancelled) return "No completed requests";
+  return [
+    answered ? `${answered} answered` : "",
+    cancelled ? `${cancelled} cancelled` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function compareInboxRequests(
+  left: PickleRequest,
+  right: PickleRequest,
+): number {
+  if (left.state !== right.state) {
+    if (left.state === "conflict") return -1;
+    if (right.state === "conflict") return 1;
+  }
+  const priorities: Record<string, number> = {
+    urgent: 4,
+    high: 3,
+    normal: 2,
+    low: 1,
+  };
+  const priorityDifference =
+    (priorities[right.priority] ?? 0) - (priorities[left.priority] ?? 0);
+  if (priorityDifference) return priorityDifference;
+  const leftDue = timestamp(left.dueAt, Number.POSITIVE_INFINITY);
+  const rightDue = timestamp(right.dueAt, Number.POSITIVE_INFINITY);
+  if (leftDue !== rightDue) return leftDue - rightDue;
+  return timestamp(right.createdAt, 0) - timestamp(left.createdAt, 0);
+}
+
+function timestamp(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = new Date(value).valueOf();
+  return Number.isNaN(parsed) ? fallback : parsed;
 }
 
 function relativeDate(value?: string): string {

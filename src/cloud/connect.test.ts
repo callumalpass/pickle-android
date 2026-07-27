@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import bundledManifest from "../generated/mdbase-app.json";
-import { isMdbaseCallback, pickleConnect } from "./connect";
+import {
+  clearPickleSelection,
+  isMdbaseCallback,
+  pickleConnect,
+} from "./connect";
 
 describe("Pickle mdbase connection", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    history.replaceState(null, "", "/");
+    vi.restoreAllMocks();
+  });
   it("accepts browser and native authorization callbacks", () => {
     expect(
       isMdbaseCallback("https://pickle.example/auth/mdbase/callback?code=one"),
@@ -18,6 +25,21 @@ describe("Pickle mdbase connection", () => {
 
   it("ignores ordinary application locations", () => {
     expect(isMdbaseCallback("https://pickle.example/")).toBe(false);
+  });
+
+  it("clears a stale bookmarked collection without dropping app state", () => {
+    history.replaceState(
+      { preserved: true },
+      "",
+      "/?collection=old-collection&view=inbox#request",
+    );
+
+    clearPickleSelection();
+
+    expect(location.pathname).toBe("/");
+    expect(location.search).toBe("?view=inbox");
+    expect(location.hash).toBe("#request");
+    expect(history.state).toEqual({ preserved: true });
   });
 
   it("registers the generated declaration inline", async () => {
