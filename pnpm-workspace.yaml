@@ -1,6 +1,6 @@
 overrides:
-  "@mdbase/connect": "file:vendor/mdbase-connect-0.1.0-beta.1-6fdaeb7a4623.tgz"
-  "@mdbase/connect-protocol": "file:vendor/mdbase-connect-protocol-0.1.0-beta.1-6fdaeb7a4623.tgz"
+  "@mdbase/connect": "file:vendor/mdbase-connect-0.1.0-beta.7-c4fd2f801b12.tgz"
+  "@mdbase/connect-protocol": "file:vendor/mdbase-connect-protocol-0.1.0-beta.7-c4fd2f801b12.tgz"
 
 allowBuilds:
   sharp: true
