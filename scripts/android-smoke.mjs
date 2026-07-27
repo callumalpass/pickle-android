@@ -56,7 +56,7 @@ async function main() {
     );
 
     adb("shell", "input", "keyevent", "KEYCODE_BACK");
-    await waitFor(() => devtools.hasText("Requests"), "hardware Back to inbox");
+    await waitFor(() => devtools.hasText("Inbox"), "hardware Back to inbox");
     if (await devtools.hasText("Approve production deployment"))
       throw new Error("Answered request remained in the pending inbox.");
 
@@ -86,7 +86,7 @@ async function main() {
     devtools.close();
     devtools = await connectToWebView();
     await waitFor(
-      () => devtools.hasText("Requests"),
+      () => devtools.hasText("Inbox"),
       "the inbox after process restart",
       20_000,
     );

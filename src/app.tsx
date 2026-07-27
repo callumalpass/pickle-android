@@ -1,12 +1,14 @@
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
+import { MdbaseConnectError } from "@mdbase/connect";
 import { useCallback, useEffect, useState } from "react";
 
 import markUrl from "./assets/pickle-mark.svg";
 import {
   activePickleConnection,
   authorizationReturnTo,
+  clearPickleSelection,
   cleanCallbackUrl,
   completePickleAuthorization,
   isMdbaseCallback,
@@ -29,6 +31,13 @@ interface AppProps {
   repository?: PickleRepository | null;
 }
 
+interface ConnectionIssue {
+  code: string;
+  title: string;
+  message: string;
+  clearSelection?: boolean;
+}
+
 export function App({ repository: initialRepository }: AppProps = {}) {
   const [repository, setRepository] = useState<PickleRepository | null>(() => {
     if (initialRepository !== undefined) return initialRepository;
@@ -37,7 +46,7 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     const connection = activePickleConnection();
     return connection ? new ConnectedPickleRepository(connection) : null;
   });
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ConnectionIssue | null>(null);
   const [opening, setOpening] = useState(false);
 
   const complete = useCallback(async (url: string) => {
@@ -47,7 +56,9 @@ export function App({ repository: initialRepository }: AppProps = {}) {
       setRepository(new ConnectedPickleRepository(connection));
       setError(null);
     } catch (reason) {
-      setError(message(reason));
+      const issue = connectionIssue(reason);
+      if (issue.clearSelection) clearPickleSelection();
+      setError(issue);
     } finally {
       setOpening(false);
       await finishCallback();
@@ -88,13 +99,19 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     return (
       <PickleApp
         repository={repository}
-        onChangeCollection={() => setRepository(null)}
+        onChangeCollection={() => {
+          clearPickleSelection();
+          setError(null);
+          setRepository(null);
+        }}
         onDisconnect={() => {
           void pickleNotifications
             .disable()
             .catch(() => undefined)
             .finally(() => {
               activePickleConnection()?.forget();
+              clearPickleSelection();
+              setError(null);
               setRepository(null);
             });
         }}
@@ -113,7 +130,9 @@ export function App({ repository: initialRepository }: AppProps = {}) {
       })
       .catch((reason) => {
         setOpening(false);
-        setError(message(reason));
+        const issue = connectionIssue(reason);
+        if (issue.clearSelection) clearPickleSelection();
+        setError(issue);
       });
   }
 
@@ -129,9 +148,10 @@ export function App({ repository: initialRepository }: AppProps = {}) {
         </p>
       </div>
       {error ? (
-        <p className="inline-error" role="alert">
-          {error}
-        </p>
+        <div className="connection-error" role="alert">
+          <strong>{error.title}</strong>
+          <p>{error.message}</p>
+        </div>
       ) : null}
       <div className="connection-actions">
         {savedPickleConnections().map((connection) => (
@@ -159,9 +179,11 @@ export function App({ repository: initialRepository }: AppProps = {}) {
         >
           {opening
             ? "Opening mdbase…"
-            : savedPickleConnections().length
-              ? "Connect another collection"
-              : "Continue to mdbase"}
+            : error?.code === "collection_mismatch"
+              ? "Choose collection again"
+              : savedPickleConnections().length
+                ? "Connect another collection"
+                : "Continue to mdbase"}
         </button>
         <small>
           Pickle never asks for a server address, collection path, or network
@@ -178,6 +200,34 @@ async function finishCallback(): Promise<void> {
   else cleanCallbackUrl();
 }
 
-function message(reason: unknown): string {
-  return reason instanceof Error ? reason.message : String(reason);
+function connectionIssue(reason: unknown): ConnectionIssue {
+  if (reason instanceof MdbaseConnectError) {
+    if (reason.code === "collection_mismatch") {
+      return {
+        code: reason.code,
+        title: "Choose the collection again",
+        message:
+          "Pickle was still linked to a different collection. That old selection has been cleared.",
+        clearSelection: true,
+      };
+    }
+    if (reason.code === "invalid_callback" || reason.code === "expired_token") {
+      return {
+        code: reason.code,
+        title: "Authorization expired",
+        message:
+          "Start the connection again and approve the Pickle collection.",
+      };
+    }
+    return {
+      code: reason.code,
+      title: "Could not connect this collection",
+      message: reason.message,
+    };
+  }
+  return {
+    code: "connection_failed",
+    title: "Could not connect this collection",
+    message: reason instanceof Error ? reason.message : String(reason),
+  };
 }
