@@ -5,8 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  "@mdbase/connect": file:vendor/mdbase-connect-0.1.0-beta.7-c4fd2f801b12.tgz
-  "@mdbase/connect-protocol": file:vendor/mdbase-connect-protocol-0.1.0-beta.7-c4fd2f801b12.tgz
+  "@mdbase/connect": file:vendor/mdbase-connect-0.1.0-beta.8-c3a44aa7063a.tgz
+  "@mdbase/connect-protocol": file:vendor/mdbase-connect-protocol-0.1.0-beta.8-c3a44aa7063a.tgz
 
 importers:
   .:
@@ -33,11 +33,11 @@ importers:
         specifier: 5.3.0
         version: 5.3.0
       "@mdbase/connect":
-        specifier: file:vendor/mdbase-connect-0.1.0-beta.7-c4fd2f801b12.tgz
-        version: file:vendor/mdbase-connect-0.1.0-beta.7-c4fd2f801b12.tgz
+        specifier: file:vendor/mdbase-connect-0.1.0-beta.8-c3a44aa7063a.tgz
+        version: file:vendor/mdbase-connect-0.1.0-beta.8-c3a44aa7063a.tgz
       "@mdbase/connect-protocol":
-        specifier: file:vendor/mdbase-connect-protocol-0.1.0-beta.7-c4fd2f801b12.tgz
-        version: file:vendor/mdbase-connect-protocol-0.1.0-beta.7-c4fd2f801b12.tgz
+        specifier: file:vendor/mdbase-connect-protocol-0.1.0-beta.8-c3a44aa7063a.tgz
+        version: file:vendor/mdbase-connect-protocol-0.1.0-beta.8-c3a44aa7063a.tgz
       "@mdbase/pickle":
         specifier: file:vendor/mdbase-pickle-0.1.0-beta.1.tgz
         version: file:vendor/mdbase-pickle-0.1.0-beta.1.tgz
@@ -684,21 +684,21 @@ packages:
         integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==,
       }
 
-  "@mdbase/connect-protocol@file:vendor/mdbase-connect-protocol-0.1.0-beta.7-c4fd2f801b12.tgz":
+  "@mdbase/connect-protocol@file:vendor/mdbase-connect-protocol-0.1.0-beta.8-c3a44aa7063a.tgz":
     resolution:
       {
-        integrity: sha512-jgQ9bk22EJmdgMABczNbubk2mhI/EQxo/gZuz7DAOLU0LM9HivAIWJDMfLzCHtyGRhb8IqVg5WfHmQEAdwnSvQ==,
-        tarball: file:vendor/mdbase-connect-protocol-0.1.0-beta.7-c4fd2f801b12.tgz,
+        integrity: sha512-J7RWdFJrQsPWFEEsLG167SuV4n+bXRDFlTnlyGXlLAZblDw3Va0XUAnb2t86C9NiOys/yVIJptwtUXfrfbxjKg==,
+        tarball: file:vendor/mdbase-connect-protocol-0.1.0-beta.8-c3a44aa7063a.tgz,
       }
-    version: 0.1.0-beta.7
+    version: 0.1.0-beta.8
 
-  "@mdbase/connect@file:vendor/mdbase-connect-0.1.0-beta.7-c4fd2f801b12.tgz":
+  "@mdbase/connect@file:vendor/mdbase-connect-0.1.0-beta.8-c3a44aa7063a.tgz":
     resolution:
       {
-        integrity: sha512-vnEjChmSkS2rcnJqWwl+duxMRZ2zRQ5LV/ZTyEq3HsQ6gcA+A3DSeNQOgTVIeaFDAL5+V0Hfb9+qqCN+rZwx2g==,
-        tarball: file:vendor/mdbase-connect-0.1.0-beta.7-c4fd2f801b12.tgz,
+        integrity: sha512-jVgJFlSrHyfHA7Ms7VKG8knMTlxddwLcyPULR8q6YRjRxdXd6nT/7AFX7euoImQ3xQDHnlrfPK02VEWeLWmwQA==,
+        tarball: file:vendor/mdbase-connect-0.1.0-beta.8-c3a44aa7063a.tgz,
       }
-    version: 0.1.0-beta.7
+    version: 0.1.0-beta.8
 
   "@mdbase/pickle@file:vendor/mdbase-pickle-0.1.0-beta.1.tgz":
     resolution:
@@ -5191,17 +5191,17 @@ snapshots:
       "@jridgewell/resolve-uri": 3.1.2
       "@jridgewell/sourcemap-codec": 1.5.5
 
-  "@mdbase/connect-protocol@file:vendor/mdbase-connect-protocol-0.1.0-beta.7-c4fd2f801b12.tgz":
+  "@mdbase/connect-protocol@file:vendor/mdbase-connect-protocol-0.1.0-beta.8-c3a44aa7063a.tgz":
     {}
 
-  "@mdbase/connect@file:vendor/mdbase-connect-0.1.0-beta.7-c4fd2f801b12.tgz":
+  "@mdbase/connect@file:vendor/mdbase-connect-0.1.0-beta.8-c3a44aa7063a.tgz":
     dependencies:
-      "@mdbase/connect-protocol": file:vendor/mdbase-connect-protocol-0.1.0-beta.7-c4fd2f801b12.tgz
+      "@mdbase/connect-protocol": file:vendor/mdbase-connect-protocol-0.1.0-beta.8-c3a44aa7063a.tgz
 
   "@mdbase/pickle@file:vendor/mdbase-pickle-0.1.0-beta.1.tgz":
     dependencies:
-      "@mdbase/connect": file:vendor/mdbase-connect-0.1.0-beta.7-c4fd2f801b12.tgz
-      "@mdbase/connect-protocol": file:vendor/mdbase-connect-protocol-0.1.0-beta.7-c4fd2f801b12.tgz
+      "@mdbase/connect": file:vendor/mdbase-connect-0.1.0-beta.8-c3a44aa7063a.tgz
+      "@mdbase/connect-protocol": file:vendor/mdbase-connect-protocol-0.1.0-beta.8-c3a44aa7063a.tgz
 
   "@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)":
     dependencies:
