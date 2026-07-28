@@ -44,6 +44,7 @@ describe("Pickle native notifications", () => {
       criteria: ["pickle.request.created"],
     });
     const notifications = new PickleNotifications(() => ({
+      collectionId: "pickle-a",
       registerNativeNotifications: register,
       unregisterNativeNotifications: vi.fn(),
     }));
@@ -64,6 +65,46 @@ describe("Pickle native notifications", () => {
       criteria: ["pickle.request.created"],
     });
     expect(notifications.current()).toBe("enabled");
+  });
+
+  it("moves an enabled native registration to the newly selected collection", async () => {
+    const callbacks = new Map<string, (value: never) => void>();
+    push.checkPermissions.mockResolvedValue({ receive: "granted" });
+    push.addListener.mockImplementation(
+      (eventName: string, callback: (value: never) => void) => {
+        callbacks.set(eventName, callback);
+        return Promise.resolve({ remove: vi.fn() });
+      },
+    );
+    const first = {
+      collectionId: "pickle-a",
+      registerNativeNotifications: vi.fn().mockResolvedValue({}),
+      unregisterNativeNotifications: vi.fn().mockResolvedValue(undefined),
+    };
+    const second = {
+      collectionId: "pickle-b",
+      registerNativeNotifications: vi.fn().mockResolvedValue({}),
+      unregisterNativeNotifications: vi.fn().mockResolvedValue(undefined),
+    };
+    const notifications = new PickleNotifications(() => first);
+
+    await notifications.start(vi.fn());
+    await notifications.enable();
+    callbacks.get("registration")?.({ value: "stable-fcm-token" } as never);
+    await vi.waitFor(() =>
+      expect(first.registerNativeNotifications).toHaveBeenCalled(),
+    );
+
+    await notifications.bindConnection(second);
+
+    expect(first.unregisterNativeNotifications).toHaveBeenCalledOnce();
+    expect(second.registerNativeNotifications).toHaveBeenCalledWith({
+      token: "stable-fcm-token",
+      criteria: ["pickle.request.created"],
+    });
+    expect(localStorage.getItem("pickle.notifications.fcm_token")).toBe(
+      "stable-fcm-token",
+    );
   });
 
   it("refreshes only for a valid opaque Pickle signal", async () => {

@@ -2,13 +2,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./app";
-import { pickleConnect } from "./cloud/connect";
-import { FixturePickleRepository } from "./dev/fixture";
+import { pickleSession } from "./cloud/connect";
 
 describe("Pickle connection", () => {
   afterEach(() => {
     localStorage.clear();
-    history.replaceState(null, "", "/");
+    pickleSession.clearSelection({ history: "replace" });
     vi.restoreAllMocks();
   });
 
@@ -24,34 +23,15 @@ describe("Pickle connection", () => {
     expect(screen.queryByLabelText(/server|token|tailscale/i)).toBeNull();
   });
 
-  it("clears the bookmarked collection before opening another one", () => {
-    history.replaceState(null, "", "/?collection=old-collection");
-    render(<App repository={new FixturePickleRepository()} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "More" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Open another collection" }),
-    );
-
-    expect(location.search).toBe("");
-    expect(
-      screen.getByRole("heading", { name: "Open your decision inbox." }),
-    ).toBeVisible();
-  });
-
-  it("does not pin a stale bookmarked collection when starting authorization", () => {
+  it("starts choose authorization instead of targeting a stale bookmark", () => {
     history.replaceState(null, "", "/?collection=old-collection");
     const authorize = vi
-      .spyOn(pickleConnect, "authorize")
+      .spyOn(pickleSession, "authorize")
       .mockReturnValue(new Promise<never>(() => undefined));
     render(<App repository={null} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Continue to mdbase" }));
 
-    expect(authorize).toHaveBeenCalledWith({
-      operations: expect.any(Array),
-      returnTo: "/?collection=old-collection",
-    });
-    expect(authorize.mock.calls[0]?.[0]).not.toHaveProperty("collectionId");
+    expect(authorize).toHaveBeenCalledWith("choose");
   });
 });

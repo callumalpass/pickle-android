@@ -1,0 +1,81 @@
+name: Test and deploy Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PICKLE_APP_URL: https://callumalpass.github.io/pickle-android
+  PICKLE_WEB_ONLY: "1"
+  VITE_BASE_PATH: /pickle-android/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify application
+        run: pnpm verify
+
+      - name: Prepare single-page callback routes
+        run: |
+          mkdir -p dist/auth/mdbase/callback
+          cp dist/index.html dist/auth/mdbase/callback/index.html
+          cp dist/index.html dist/404.html
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Verify application manifest
+        env:
+          MANIFEST_URL: https://callumalpass.github.io/pickle-android/.well-known/mdbase-app.json?commit=${{ github.sha }}
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "$MANIFEST_URL" --output "$RUNNER_TEMP/mdbase-app.json"
+          node -e 'const manifest = require(process.env.RUNNER_TEMP + "/mdbase-app.json"); if (manifest.homepage !== "https://callumalpass.github.io/pickle-android/") process.exit(1)'

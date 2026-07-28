@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import bundledManifest from "../generated/mdbase-app.json";
 import {
-  clearPickleSelection,
-  isMdbaseCallback,
+  isNativeMdbaseCallback,
   pickleConnect,
+  pickleSession,
 } from "./connect";
 
 describe("Pickle mdbase connection", () => {
@@ -12,19 +12,16 @@ describe("Pickle mdbase connection", () => {
     history.replaceState(null, "", "/");
     vi.restoreAllMocks();
   });
-  it("accepts browser and native authorization callbacks", () => {
+  it("accepts the native authorization callback route", () => {
     expect(
-      isMdbaseCallback("https://pickle.example/auth/mdbase/callback?code=one"),
-    ).toBe(true);
-    expect(
-      isMdbaseCallback(
+      isNativeMdbaseCallback(
         "com.callumalpass.pickle://auth/mdbase/callback?error=denied",
       ),
     ).toBe(true);
   });
 
   it("ignores ordinary application locations", () => {
-    expect(isMdbaseCallback("https://pickle.example/")).toBe(false);
+    expect(isNativeMdbaseCallback("https://pickle.example/")).toBe(false);
   });
 
   it("clears a stale bookmarked collection without dropping app state", () => {
@@ -34,7 +31,7 @@ describe("Pickle mdbase connection", () => {
       "/?collection=old-collection&view=inbox#request",
     );
 
-    clearPickleSelection();
+    pickleSession.clearSelection({ history: "replace" });
 
     expect(location.pathname).toBe("/");
     expect(location.search).toBe("?view=inbox");
