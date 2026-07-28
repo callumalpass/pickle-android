@@ -16,7 +16,6 @@ import {
   PICKLE_OPERATIONS,
   pickleConnect,
   savedPickleConnections,
-  selectedPickleCollectionId,
   selectPickleConnection,
 } from "./cloud/connect";
 import { FixturePickleRepository } from "./dev/fixture";
@@ -125,7 +124,6 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     void pickleConnect
       .authorize({
         operations: [...PICKLE_OPERATIONS],
-        collectionId: selectedPickleCollectionId() ?? undefined,
         returnTo: authorizationReturnTo(),
       })
       .catch((reason) => {
