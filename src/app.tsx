@@ -2,21 +2,20 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
 import { MdbaseConnectError } from "@mdbase/connect";
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import markUrl from "./assets/pickle-mark.svg";
 import {
-  activePickleConnection,
-  authorizationReturnTo,
-  clearPickleSelection,
-  cleanCallbackUrl,
-  completePickleAuthorization,
-  isMdbaseCallback,
-  onPickleConnectionChange,
-  PICKLE_OPERATIONS,
-  pickleConnect,
-  savedPickleConnections,
-  selectPickleConnection,
+  isNativeMdbaseCallback,
+  pickleSession,
+  pickleSnapshot,
+  subscribeToPickleSession,
 } from "./cloud/connect";
 import { FixturePickleRepository } from "./dev/fixture";
 import {
@@ -34,84 +33,100 @@ interface ConnectionIssue {
   code: string;
   title: string;
   message: string;
-  clearSelection?: boolean;
 }
 
 export function App({ repository: initialRepository }: AppProps = {}) {
-  const [repository, setRepository] = useState<PickleRepository | null>(() => {
-    if (initialRepository !== undefined) return initialRepository;
-    if (import.meta.env.VITE_PICKLE_FIXTURE === "1")
-      return new FixturePickleRepository();
-    const connection = activePickleConnection();
-    return connection ? new ConnectedPickleRepository(connection) : null;
-  });
+  const snapshot = useSyncExternalStore(
+    subscribeToPickleSession,
+    pickleSnapshot,
+  );
+  const fixtureMode = import.meta.env.VITE_PICKLE_FIXTURE === "1";
+  const usesSession = initialRepository === undefined && !fixtureMode;
+  const fixtureRepository = useMemo(
+    () => (fixtureMode ? new FixturePickleRepository() : null),
+    [fixtureMode],
+  );
+  const sessionConnection =
+    snapshot.status === "ready" ? snapshot.connection : null;
+  const connectedRepository = useMemo(
+    () =>
+      sessionConnection
+        ? new ConnectedPickleRepository(sessionConnection)
+        : null,
+    [sessionConnection],
+  );
+  const repository =
+    initialRepository !== undefined
+      ? initialRepository
+      : (fixtureRepository ?? connectedRepository);
   const [error, setError] = useState<ConnectionIssue | null>(null);
   const [opening, setOpening] = useState(false);
 
-  const complete = useCallback(async (url: string) => {
-    if (!isMdbaseCallback(url)) return;
+  const completeNative = useCallback(async (url: string) => {
+    if (!isNativeMdbaseCallback(url)) return;
+    setOpening(true);
+    setError(null);
     try {
-      const connection = await completePickleAuthorization(url);
-      setRepository(new ConnectedPickleRepository(connection));
-      setError(null);
+      await pickleSession.handleAuthorizationCallback(url);
     } catch (reason) {
-      const issue = connectionIssue(reason);
-      if (issue.clearSelection) clearPickleSelection();
-      setError(issue);
+      setError(connectionIssue(reason));
     } finally {
       setOpening(false);
-      await finishCallback();
+      await Browser.close().catch(() => undefined);
     }
   }, []);
 
   useEffect(() => {
-    if (isMdbaseCallback(location.href)) {
-      const callbackUrl = location.href;
-      queueMicrotask(() => void complete(callbackUrl));
+    if (!usesSession) return;
+    let active = true;
+    void pickleSession.start().catch((reason: unknown) => {
+      if (active) setError(connectionIssue(reason));
+    });
+    if (!Capacitor.isNativePlatform()) {
+      return () => {
+        active = false;
+      };
     }
-    if (!Capacitor.isNativePlatform()) return;
     const listener = CapacitorApp.addListener("appUrlOpen", ({ url }) => {
-      void complete(url);
+      void completeNative(url);
     });
     void CapacitorApp.getLaunchUrl().then((value) => {
-      if (value?.url) void complete(value.url);
+      if (value?.url) void completeNative(value.url);
     });
     return () => {
+      active = false;
       void listener.then((handle) => handle.remove());
     };
-  }, [complete]);
+  }, [completeNative, usesSession]);
 
   useEffect(() => {
-    if (
-      initialRepository !== undefined ||
-      import.meta.env.VITE_PICKLE_FIXTURE === "1"
-    )
-      return;
-    return onPickleConnectionChange((connection) => {
-      setRepository(
-        connection ? new ConnectedPickleRepository(connection) : null,
-      );
-    });
-  }, [initialRepository]);
+    if (!usesSession) return;
+    void pickleNotifications.bindConnection(sessionConnection);
+  }, [sessionConnection, usesSession]);
 
   if (repository) {
+    const collectionId = repository.collectionId;
     return (
       <PickleApp
+        key={collectionId}
         repository={repository}
-        onChangeCollection={() => {
-          clearPickleSelection();
-          setError(null);
-          setRepository(null);
-        }}
+        onChangeCollection={
+          usesSession
+            ? () => {
+                setError(null);
+                pickleSession.clearSelection({ history: "replace" });
+              }
+            : undefined
+        }
         onDisconnect={() => {
+          if (!usesSession || snapshot.status !== "ready") return;
+          const selectedCollectionId = snapshot.collectionId;
           void pickleNotifications
             .disable()
             .catch(() => undefined)
             .finally(() => {
-              activePickleConnection()?.forget();
-              clearPickleSelection();
+              pickleSession.forget(selectedCollectionId);
               setError(null);
-              setRepository(null);
             });
         }}
       />
@@ -121,18 +136,31 @@ export function App({ repository: initialRepository }: AppProps = {}) {
   function connect() {
     setOpening(true);
     setError(null);
-    void pickleConnect
-      .authorize({
-        operations: [...PICKLE_OPERATIONS],
-        returnTo: authorizationReturnTo(),
+    void pickleSession
+      .authorize("choose")
+      .then((outcome) => {
+        if (outcome.kind === "connected") setOpening(false);
       })
       .catch((reason) => {
         setOpening(false);
-        const issue = connectionIssue(reason);
-        if (issue.clearSelection) clearPickleSelection();
-        setError(issue);
+        setError(connectionIssue(reason));
       });
   }
+
+  const unavailableIssue =
+    snapshot.status === "unavailable"
+      ? {
+          code: snapshot.reason,
+          title: "Choose the collection again",
+          message:
+            snapshot.reason === "invalid_stored_grant"
+              ? "This saved authorization is no longer compatible with Pickle."
+              : snapshot.reason === "authorization_lost"
+                ? "Pickle no longer has access to this collection."
+                : "This bookmarked collection is not authorized on this device.",
+        }
+      : null;
+  const displayedError = error ?? unavailableIssue;
 
   return (
     <main className="connection-screen">
@@ -145,25 +173,23 @@ export function App({ repository: initialRepository }: AppProps = {}) {
           running mdbase connect.
         </p>
       </div>
-      {error ? (
+      {displayedError ? (
         <div className="connection-error" role="alert">
-          <strong>{error.title}</strong>
-          <p>{error.message}</p>
+          <strong>{displayedError.title}</strong>
+          <p>{displayedError.message}</p>
         </div>
       ) : null}
       <div className="connection-actions">
-        {savedPickleConnections().map((connection) => (
+        {snapshot.connections.map((connection) => (
           <button
             key={connection.collectionId}
             className="outline-action"
             type="button"
             onClick={() => {
-              selectPickleConnection(connection.collectionId, true);
-              const selected = pickleConnect.connection(
-                connection.collectionId,
-              );
-              if (selected)
-                setRepository(new ConnectedPickleRepository(selected));
+              setError(null);
+              pickleSession.select(connection.collectionId, {
+                history: "replace",
+              });
             }}
           >
             Open {connection.displayName}
@@ -177,11 +203,9 @@ export function App({ repository: initialRepository }: AppProps = {}) {
         >
           {opening
             ? "Opening mdbase…"
-            : error?.code === "collection_mismatch"
-              ? "Choose collection again"
-              : savedPickleConnections().length
-                ? "Connect another collection"
-                : "Continue to mdbase"}
+            : snapshot.connections.length
+              ? "Connect another collection"
+              : "Continue to mdbase"}
         </button>
         <small>
           Pickle never asks for a server address, collection path, or network
@@ -192,23 +216,8 @@ export function App({ repository: initialRepository }: AppProps = {}) {
   );
 }
 
-async function finishCallback(): Promise<void> {
-  if (Capacitor.isNativePlatform())
-    await Browser.close().catch(() => undefined);
-  else cleanCallbackUrl();
-}
-
 function connectionIssue(reason: unknown): ConnectionIssue {
   if (reason instanceof MdbaseConnectError) {
-    if (reason.code === "collection_mismatch") {
-      return {
-        code: reason.code,
-        title: "Choose the collection again",
-        message:
-          "Pickle was still linked to a different collection. That old selection has been cleared.",
-        clearSelection: true,
-      };
-    }
     if (reason.code === "invalid_callback" || reason.code === "expired_token") {
       return {
         code: reason.code,

@@ -19,12 +19,23 @@ export type NotificationState =
   | "error";
 
 const PREFERENCE_KEY = "pickle.notifications.enabled";
+const TOKEN_KEY = "pickle.notifications.fcm_token";
 export const PICKLE_NOTIFICATION_CHANNEL = "mdbase-updates";
+
+type NotificationConnection = Pick<
+  MdbaseConnection,
+  | "collectionId"
+  | "registerNativeNotifications"
+  | "unregisterNativeNotifications"
+>;
 
 export class PickleNotifications {
   private listeners: PluginListenerHandle[] = [];
   private statusListeners = new Set<(state: NotificationState) => void>();
   private signalListener: (() => void) | null = null;
+  private boundConnection: NotificationConnection | null | undefined;
+  private bindSequence = 0;
+  private token: string | null = null;
   private started = false;
   private readonly testMode =
     import.meta.env.VITE_PICKLE_NOTIFICATION_TEST === "1";
@@ -33,10 +44,7 @@ export class PickleNotifications {
     : "unavailable";
 
   constructor(
-    private readonly connection: () => Pick<
-      MdbaseConnection,
-      "registerNativeNotifications" | "unregisterNativeNotifications"
-    > | null = activePickleConnection,
+    private readonly selectedConnection: () => NotificationConnection | null = activePickleConnection,
   ) {}
 
   current(): NotificationState {
@@ -104,7 +112,43 @@ export class PickleNotifications {
     await this.connection()?.unregisterNativeNotifications();
     await PushNotifications.unregister();
     localStorage.setItem(PREFERENCE_KEY, "false");
+    localStorage.removeItem(TOKEN_KEY);
+    this.token = null;
     this.setState("off");
+  }
+
+  async bindConnection(
+    connection: NotificationConnection | null,
+  ): Promise<void> {
+    const previous =
+      this.boundConnection === undefined
+        ? this.selectedConnection()
+        : this.boundConnection;
+    this.boundConnection = connection;
+    if (previous?.collectionId === connection?.collectionId) return;
+
+    const sequence = ++this.bindSequence;
+    if (!Capacitor.isNativePlatform()) return;
+    if (localStorage.getItem(PREFERENCE_KEY) !== "true") return;
+
+    await previous?.unregisterNativeNotifications().catch(() => undefined);
+    if (sequence !== this.bindSequence) return;
+    if (!connection) {
+      this.setState("off");
+      return;
+    }
+
+    const token = this.token ?? localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      this.setState("enabling");
+      await PushNotifications.register();
+      return;
+    }
+    try {
+      await this.registerConnection(connection, token);
+    } catch {
+      if (sequence === this.bindSequence) this.setState("error");
+    }
   }
 
   async stop(): Promise<void> {
@@ -123,6 +167,8 @@ export class PickleNotifications {
   }
 
   private async registerWithConnect(token: string): Promise<void> {
+    this.token = token;
+    localStorage.setItem(TOKEN_KEY, token);
     try {
       if (this.testMode) {
         localStorage.setItem("pickle.test.fcm_token", token);
@@ -131,14 +177,27 @@ export class PickleNotifications {
       }
       const connection = this.connection();
       if (!connection) throw new Error("Pickle is not connected.");
-      await connection.registerNativeNotifications({
-        token,
-        criteria: [PICKLE_NOTIFICATION_CRITERION],
-      });
-      this.setState("enabled");
+      await this.registerConnection(connection, token);
     } catch {
       this.setState("error");
     }
+  }
+
+  private connection(): NotificationConnection | null {
+    return this.boundConnection === undefined
+      ? this.selectedConnection()
+      : this.boundConnection;
+  }
+
+  private async registerConnection(
+    connection: NotificationConnection,
+    token: string,
+  ): Promise<void> {
+    await connection.registerNativeNotifications({
+      token,
+      criteria: [PICKLE_NOTIFICATION_CRITERION],
+    });
+    this.setState("enabled");
   }
 
   private setState(state: NotificationState): void {

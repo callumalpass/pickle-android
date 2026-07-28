@@ -23,6 +23,14 @@ at a local mdbase connect control plane and manifest origin.
 The checked-in mdbase packages are deterministic snapshots from the sibling
 `mdbase-connect` workspace. Refresh them after compatible protocol changes.
 
+## Web deployment
+
+Pushes to `main` deploy the web-first app to
+`https://callumalpass.github.io/pickle-android/` through GitHub Pages. The
+deployment build sets the Pages base path and generates a web-only application
+manifest for that origin. Android builds keep the default
+`https://pickle.mdbase.dev` application identity and native callback.
+
 The native smoke test uses the fixture collection, a connected Android
 emulator, Java 21, and the current gcloud account:
 

@@ -3,8 +3,9 @@ import { resolve } from "node:path";
 
 import {
   PICKLE_NOTIFICATION_CRITERION,
-  PICKLE_PROVISION_TYPES,
   PICKLE_REQUEST_CONTRACT,
+  PICKLE_REQUEST_CONTRACT_VERSION,
+  PICKLE_TYPE_PACK_PROVISION,
 } from "@mdbase/pickle";
 
 const development = process.argv.includes("--development");
@@ -35,17 +36,22 @@ const manifest = {
     ...(!webOnly ? ["com.callumalpass.pickle://auth/mdbase/callback"] : []),
   ],
   requirements: {
-    contracts: [{ id: PICKLE_REQUEST_CONTRACT, version: 1 }],
+    contracts: [
+      {
+        id: PICKLE_REQUEST_CONTRACT,
+        version: PICKLE_REQUEST_CONTRACT_VERSION,
+      },
+    ],
     access: "full_collection",
   },
   provisions: {
-    types: PICKLE_PROVISION_TYPES,
+    type_packs: [PICKLE_TYPE_PACK_PROVISION],
   },
   notifications: {
     criteria: [
       {
         id: PICKLE_NOTIFICATION_CRITERION,
-        event: { id: "mdbase.record.created", version: 1 },
+        event: { id: "mdbase.record.created", version: "1.0.0" },
         if: { $expr: '"pickle_request" in event.payload.types' },
         debounce: "2s",
         presentation: {

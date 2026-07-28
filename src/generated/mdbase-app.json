@@ -12,35 +12,71 @@
     "contracts": [
       {
         "id": "pickle.request",
-        "version": 1
+        "version": "1.0.0"
       }
     ],
     "access": "full_collection"
   },
   "provisions": {
-    "types": [
+    "type_packs": [
       {
-        "name": "pickle_request",
-        "path": "_types/pickle_request.md",
-        "document": "---\nkind: mdbase.type\nname: pickle_request\nversion: 1\ndescription: Async request that needs a human response.\nschema:\n  dialect: json-schema-2020-12\n  value:\n    $schema: \"https://json-schema.org/draft/2020-12/schema\"\n    type: object\n    additionalProperties: true\n    required: [title, response_type]\n    properties:\n      type: { const: pickle_request }\n      id: { type: string }\n      title: { type: string, minLength: 1 }\n      source: { type: string }\n      message: { type: string }\n      kind: { enum: [approval, choice, input, notice, message] }\n      status:\n        enum: [pending, answered, cancelled]\n        description: Legacy lifecycle marker. Response links are authoritative for answered state.\n      priority: { enum: [low, normal, high, urgent] }\n      response_type: { type: string }\n      created_at: { type: string, format: date-time }\n      due_at: { type: string, format: date-time }\n      dedupe_key: { type: string }\n      tags:\n        type: array\n        items: { type: string }\n      links:\n        type: array\n        items:\n          type: object\n          additionalProperties: false\n          properties:\n            label: { type: string }\n            url: { type: string }\n            path: { type: string }\n      attachment_paths:\n        type: array\n        items: { type: string }\n      metadata:\n        type: object\n        additionalProperties: true\n      context:\n        type: object\n        additionalProperties: false\n        properties:\n          cwd: { type: string }\n          repo: { type: string }\n          task: { type: string }\ncollection:\n  display:\n    name_field: title\n  unique:\n    - field: id\n      scope: collection\nlifecycle:\n  on_create:\n    set:\n      created_at: { now: true }\nx-pickle:\n  contract: pickle.request\n  version: 1\n  field_roles:\n    id: id\n    title: title\n    source: source\n    message: message\n    kind: kind\n    status: status\n    priority: priority\n    response_type: response_type\n    created_at: created_at\n    tags: tags\n    links: links\n    attachment_paths: attachment_paths\n    metadata: metadata\n---\n",
+        "manifest": {
+          "kind": "mdbase.type-pack",
+          "id": "pickle.requests",
+          "version": "1.0.0",
+          "name": "Pickle requests",
+          "description": "Pickle request and response record types.",
+          "resources": [
+            {
+              "kind": "contract",
+              "source": "contracts/pickle.request.md",
+              "target": "_contracts/pickle.request.md",
+              "digest": "sha256:6ec14bdc2bb23d9889f0d6d72a6175a74b45713891fd87e9e05e3be9075e45b1"
+            },
+            {
+              "kind": "type",
+              "source": "types/pickle_request.md",
+              "target": "_types/pickle_request.md",
+              "digest": "sha256:7f84e359a5a3b7d23dd3471c7557f67cb8a80eb553184db83c4750b2af5761e4"
+            },
+            {
+              "kind": "type",
+              "source": "types/pickle_response_approval.md",
+              "target": "_types/pickle_response_approval.md",
+              "digest": "sha256:944d2b68c158297f5d2a035fa6ff3c81a7098531f77a9bc3342dc9435ffcb8b8"
+            },
+            {
+              "kind": "type",
+              "source": "types/pickle_response_ack.md",
+              "target": "_types/pickle_response_ack.md",
+              "digest": "sha256:2530c8d21bb711889f20e0d096045cb6c9a7618583b1e2afff7ada72367de41f"
+            }
+          ]
+        },
+        "resources": [
+          {
+            "source": "contracts/pickle.request.md",
+            "document": "---\nkind: mdbase.contract\ncontract_type: record\nid: pickle.request\nversion: 1.0.0\nname: Pickle request\ndescription: A portable asynchronous request that needs a human response.\nrecord_schema:\n  dialect: json-schema-2020-12\n  value:\n    $schema: \"https://json-schema.org/draft/2020-12/schema\"\n    type: object\n    additionalProperties: true\n    required: [title, response_type]\n    properties:\n      id: { type: string }\n      title: { type: string, minLength: 1 }\n      source: { type: string }\n      message: { type: string }\n      kind: { enum: [approval, choice, input, notice, message] }\n      status: { enum: [pending, answered, cancelled] }\n      priority: { enum: [low, normal, high, urgent] }\n      response_type: { type: string }\n      created_at: { type: string, format: date-time }\n      tags:\n        type: array\n        items: { type: string }\n      links:\n        type: array\n        items:\n          type: object\n          additionalProperties: false\n          properties:\n            label: { type: string }\n            url: { type: string }\n            path: { type: string }\n      attachment_paths:\n        type: array\n        items: { type: string }\n      metadata:\n        type: object\n        additionalProperties: true\n---\n"
+          },
+          {
+            "source": "types/pickle_request.md",
+            "document": "---\nkind: mdbase.type\nname: pickle_request\nversion: 1\ndescription: Async request that needs a human response.\nschema:\n  dialect: json-schema-2020-12\n  value:\n    $schema: \"https://json-schema.org/draft/2020-12/schema\"\n    type: object\n    additionalProperties: true\n    required: [title, response_type]\n    properties:\n      type: { const: pickle_request }\n      id: { type: string }\n      title: { type: string, minLength: 1 }\n      source: { type: string }\n      message: { type: string }\n      kind: { enum: [approval, choice, input, notice, message] }\n      status:\n        enum: [pending, answered, cancelled]\n        description: Legacy lifecycle marker. Response links are authoritative for answered state.\n      priority: { enum: [low, normal, high, urgent] }\n      response_type: { type: string }\n      created_at: { type: string, format: date-time }\n      due_at: { type: string, format: date-time }\n      dedupe_key: { type: string }\n      tags:\n        type: array\n        items: { type: string }\n      links:\n        type: array\n        items:\n          type: object\n          additionalProperties: false\n          properties:\n            label: { type: string }\n            url: { type: string }\n            path: { type: string }\n      attachment_paths:\n        type: array\n        items: { type: string }\n      metadata:\n        type: object\n        additionalProperties: true\n      context:\n        type: object\n        additionalProperties: false\n        properties:\n          cwd: { type: string }\n          repo: { type: string }\n          task: { type: string }\ncollection:\n  display:\n    name_field: title\n  unique:\n    - field: id\n      scope: collection\nlifecycle:\n  on_create:\n    set:\n      created_at: { now: true }\nimplements:\n  - contract: pickle.request\n    version: 1.0.0\n    fields:\n      id: id\n      title: title\n      source: source\n      message: message\n      kind: kind\n      status: status\n      priority: priority\n      response_type: response_type\n      created_at: created_at\n      tags: tags\n      links: links\n      attachment_paths: attachment_paths\n      metadata: metadata\n---\n"
+          },
+          {
+            "source": "types/pickle_response_approval.md",
+            "document": "---\nkind: mdbase.type\nname: pickle_response_approval\nversion: 1\ndescription: Approve, reject, or request revision for a Pickle request.\nschema:\n  dialect: json-schema-2020-12\n  value:\n    $schema: \"https://json-schema.org/draft/2020-12/schema\"\n    type: object\n    additionalProperties: true\n    required: [request, decision]\n    properties:\n      type: { const: pickle_response_approval }\n      id: { type: string }\n      request: { type: string }\n      decision: { enum: [approve, reject, revise] }\n      comment: { type: string }\n      responded_at: { type: string, format: date-time }\n      responder: { type: string }\n      attachment_paths:\n        type: array\n        items: { type: string }\ncollection:\n  display:\n    name_field: decision\n  links:\n    request:\n      target_type: pickle_request\n      validate_exists: true\n  unique:\n    - field: id\n      scope: collection\nlifecycle:\n  on_create:\n    set:\n      id: { ulid: true }\n      responded_at: { now: true }\n---\n"
+          },
+          {
+            "source": "types/pickle_response_ack.md",
+            "document": "---\nkind: mdbase.type\nname: pickle_response_ack\nversion: 1\ndescription: Acknowledge that a Pickle message was read.\nschema:\n  dialect: json-schema-2020-12\n  value:\n    $schema: \"https://json-schema.org/draft/2020-12/schema\"\n    type: object\n    additionalProperties: true\n    required: [request]\n    properties:\n      type: { const: pickle_response_ack }\n      id: { type: string }\n      request: { type: string }\n      message: { type: string }\n      responded_at: { type: string, format: date-time }\n      responder: { type: string }\n      attachment_paths:\n        type: array\n        items: { type: string }\ncollection:\n  display:\n    name_field: message\n  links:\n    request:\n      target_type: pickle_request\n      validate_exists: true\n  unique:\n    - field: id\n      scope: collection\nlifecycle:\n  on_create:\n    set:\n      id: { ulid: true }\n      responded_at: { now: true }\n---\n"
+          }
+        ],
         "provides": [
           {
             "id": "pickle.request",
-            "version": 1
+            "version": "1.0.0"
           }
         ]
-      },
-      {
-        "name": "pickle_response_approval",
-        "path": "_types/pickle_response_approval.md",
-        "document": "---\nkind: mdbase.type\nname: pickle_response_approval\nversion: 1\ndescription: Approve, reject, or request revision for a Pickle request.\nschema:\n  dialect: json-schema-2020-12\n  value:\n    $schema: \"https://json-schema.org/draft/2020-12/schema\"\n    type: object\n    additionalProperties: true\n    required: [request, decision]\n    properties:\n      type: { const: pickle_response_approval }\n      id: { type: string }\n      request: { type: string }\n      decision: { enum: [approve, reject, revise] }\n      comment: { type: string }\n      responded_at: { type: string, format: date-time }\n      responder: { type: string }\n      attachment_paths:\n        type: array\n        items: { type: string }\ncollection:\n  display:\n    name_field: decision\n  links:\n    request:\n      target_type: pickle_request\n      validate_exists: true\n  unique:\n    - field: id\n      scope: collection\nlifecycle:\n  on_create:\n    set:\n      id: { ulid: true }\n      responded_at: { now: true }\n---\n",
-        "provides": []
-      },
-      {
-        "name": "pickle_response_ack",
-        "path": "_types/pickle_response_ack.md",
-        "document": "---\nkind: mdbase.type\nname: pickle_response_ack\nversion: 1\ndescription: Acknowledge that a Pickle message was read.\nschema:\n  dialect: json-schema-2020-12\n  value:\n    $schema: \"https://json-schema.org/draft/2020-12/schema\"\n    type: object\n    additionalProperties: true\n    required: [request]\n    properties:\n      type: { const: pickle_response_ack }\n      id: { type: string }\n      request: { type: string }\n      message: { type: string }\n      responded_at: { type: string, format: date-time }\n      responder: { type: string }\n      attachment_paths:\n        type: array\n        items: { type: string }\ncollection:\n  display:\n    name_field: message\n  links:\n    request:\n      target_type: pickle_request\n      validate_exists: true\n  unique:\n    - field: id\n      scope: collection\nlifecycle:\n  on_create:\n    set:\n      id: { ulid: true }\n      responded_at: { now: true }\n---\n",
-        "provides": []
       }
     ]
   },
@@ -50,7 +86,7 @@
         "id": "pickle.request.created",
         "event": {
           "id": "mdbase.record.created",
-          "version": 1
+          "version": "1.0.0"
         },
         "if": {
           "$expr": "\"pickle_request\" in event.payload.types"
