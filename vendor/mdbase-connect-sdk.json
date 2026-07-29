@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
   "repository": "https://github.com/mdbase-dev/mdbase-connect",
-  "revision": "1c6d8265c67eae6b6e9fd7c208047523a2c56167",
+  "revision": "245248cc03d0b8da8f3880c87d496fb43e7d29f6",
   "artifacts": [
     {
       "package": "connect",
-      "file": "mdbase-connect-0.1.0-beta.16-1c6d8265c67e.tgz",
+      "file": "mdbase-connect-0.1.0-beta.17-245248cc03d0.tgz",
       "bytes": 60337,
-      "sha512": "QhQRi5d48qsAPYZU3BwbLE0jWrRluu8ZgrSCMz9DEWP9xtPT89zjel5XpXQ3wTz0GX4ABCI3O/0dD+Y33nBIRw=="
+      "sha512": "OxNxKYDPBOFbdGEbCnl+6GR2QW9WB+t8VUQMYI75tDtEFXV0XxiA24YnuRn/kicw9Qp3ULGTAvucTG2LgwRI1w=="
     },
     {
       "package": "protocol",
-      "file": "mdbase-connect-protocol-0.1.0-beta.16-1c6d8265c67e.tgz",
+      "file": "mdbase-connect-protocol-0.1.0-beta.17-245248cc03d0.tgz",
       "bytes": 15882,
-      "sha512": "Pqc1+gqMoJ0GM/SYu5IWpudxwcLf0k3jskVSTMbMdnpR/ieZ/REUiXQG4O3MBYmEo7LAlu1bOPJmXvOk8QCrmQ=="
+      "sha512": "dPq+0kJhrzmSiNpNwGvFtAqFCwPUTe7T7nXVD3kpQJgPJjdQH2yg0vaVTlfGgRt0ykM8sQA87VhGXdN/NcaUdQ=="
     },
     {
       "package": "pickle",
-      "file": "mdbase-pickle-0.1.0-beta.16-1c6d8265c67e.tgz",
-      "bytes": 7320,
-      "sha512": "MQNheVWicLtm1+LY+W1GA4qZfk+P/heQUhILLZAKXPT+SjpWHhJ+GmT7AAZw2L2kwFL7iAYC4KDHvnRcW4JaeQ=="
+      "file": "mdbase-pickle-0.1.0-beta.17-245248cc03d0.tgz",
+      "bytes": 7319,
+      "sha512": "d3xdpIpMH8jWSpfS5b9hBqbs+7vqnOi3xpmM6iHczyKNJMs46CobKY/n8BagupQsTNdaz/TjWXIlPuuoyGBFow=="
     }
   ]
 }
