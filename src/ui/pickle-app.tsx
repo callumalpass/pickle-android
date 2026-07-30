@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Search,
   Settings,
+  SlidersHorizontal,
   Sun,
   X,
 } from "lucide-react";
@@ -41,6 +42,13 @@ import { applyTheme, currentTheme, type Theme } from "./theme";
 type View = "inbox" | "history" | "settings";
 type RequestView = Exclude<View, "settings">;
 type SortOrder = "urgency" | "newest" | "oldest" | "title";
+type StateFilter = "all" | PickleRequest["state"];
+type PriorityFilter = "all" | PickleRequest["priority"];
+
+interface RequestFilters {
+  state: StateFilter;
+  priority: PriorityFilter;
+}
 
 interface RequestGroup {
   id: string;
@@ -68,11 +76,21 @@ export function PickleApp({
     inbox: "urgency",
     history: "newest",
   });
+  const [filters, setFilters] = useState<Record<RequestView, RequestFilters>>({
+    inbox: { state: "all", priority: "all" },
+    history: { state: "all", priority: "all" },
+  });
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const loadSequence = useRef(0);
+  const navigationState = useRef({ selectedId, view });
+
+  useEffect(() => {
+    navigationState.current = { selectedId, view };
+  }, [selectedId, view]);
 
   const load = useCallback(
     async (quiet = false) => {
@@ -110,6 +128,11 @@ export function PickleApp({
     void pickleNotifications.start(() => {
       setView("inbox");
       setSelectedId(null);
+      setQuery("");
+      setFilters((current) => ({
+        ...current,
+        inbox: { state: "all", priority: "all" },
+      }));
       setToast("New request received");
       void load(true);
     });
@@ -123,12 +146,21 @@ export function PickleApp({
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     const listener = CapacitorApp.addListener("backButton", () => {
-      if (selectedId) setSelectedId(null);
-      else if (view !== "inbox") setView("inbox");
-      else void CapacitorApp.minimizeApp();
+      const current = navigationState.current;
+      if (current.selectedId) {
+        navigationState.current = { ...current, selectedId: null };
+        setSelectedId(null);
+        return;
+      }
+      if (current.view !== "inbox") {
+        navigationState.current = { ...current, view: "inbox" };
+        setView("inbox");
+        return;
+      }
+      void CapacitorApp.minimizeApp();
     });
     return () => void listener.then((handle) => handle.remove());
-  }, [selectedId, view]);
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -138,6 +170,10 @@ export function PickleApp({
 
   const requestView: RequestView = view === "history" ? "history" : "inbox";
   const sortOrder = sortOrders[requestView];
+  const activeFilters = filters[requestView];
+  const activeFilterCount =
+    Number(activeFilters.state !== "all") +
+    Number(activeFilters.priority !== "all");
   const visibleRequests = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     const matching = requests.filter((request) => {
@@ -147,8 +183,15 @@ export function PickleApp({
           : view === "history"
             ? request.state === "answered" || request.state === "cancelled"
             : false;
+      const matchesState =
+        activeFilters.state === "all" || request.state === activeFilters.state;
+      const matchesPriority =
+        activeFilters.priority === "all" ||
+        request.priority === activeFilters.priority;
       return (
         belongs &&
+        matchesState &&
+        matchesPriority &&
         (!normalizedQuery ||
           [
             request.title,
@@ -163,7 +206,7 @@ export function PickleApp({
     return matching.sort((left, right) =>
       compareRequests(left, right, sortOrder),
     );
-  }, [query, requests, sortOrder, view]);
+  }, [activeFilters, query, requests, sortOrder, view]);
   const requestGroups = useMemo<RequestGroup[]>(() => {
     if (view === "history") {
       return [
@@ -216,6 +259,27 @@ export function PickleApp({
     setView(next);
     setSelectedId(null);
     setQuery("");
+    setFiltersOpen(false);
+  }
+
+  function setFilter<Key extends keyof RequestFilters>(
+    key: Key,
+    value: RequestFilters[Key],
+  ) {
+    setFilters((current) => ({
+      ...current,
+      [requestView]: {
+        ...current[requestView],
+        [key]: value,
+      },
+    }));
+  }
+
+  function clearFilters() {
+    setFilters((current) => ({
+      ...current,
+      [requestView]: { state: "all", priority: "all" },
+    }));
   }
 
   return (
@@ -269,25 +333,107 @@ export function PickleApp({
                     onChange={(event) => setQuery(event.target.value)}
                   />
                 </label>
-                <label className="sort-field">
-                  <ArrowUpDown aria-hidden="true" size={16} />
-                  <span className="sr-only">Sort requests</span>
-                  <select
-                    value={sortOrder}
-                    onChange={(event) =>
-                      setSortOrders((current) => ({
-                        ...current,
-                        [requestView]: event.target.value as SortOrder,
-                      }))
+                <div className="request-tool-actions">
+                  <label className="sort-field">
+                    <ArrowUpDown aria-hidden="true" size={16} />
+                    <span className="sr-only">Sort requests</span>
+                    <select
+                      value={sortOrder}
+                      onChange={(event) =>
+                        setSortOrders((current) => ({
+                          ...current,
+                          [requestView]: event.target.value as SortOrder,
+                        }))
+                      }
+                    >
+                      <option value="urgency">Urgency</option>
+                      <option value="newest">Newest</option>
+                      <option value="oldest">Oldest</option>
+                      <option value="title">Title A–Z</option>
+                    </select>
+                  </label>
+                  <button
+                    aria-controls="request-filters"
+                    aria-expanded={filtersOpen}
+                    aria-label={
+                      activeFilterCount
+                        ? `Filter requests, ${activeFilterCount} active`
+                        : "Filter requests"
                     }
+                    className={`filter-action ${
+                      activeFilterCount ? "filter-action-active" : ""
+                    }`}
+                    type="button"
+                    onClick={() => setFiltersOpen((current) => !current)}
                   >
-                    <option value="urgency">Urgency</option>
-                    <option value="newest">Newest</option>
-                    <option value="oldest">Oldest</option>
-                    <option value="title">Title A–Z</option>
-                  </select>
-                </label>
+                    <SlidersHorizontal aria-hidden="true" size={16} />
+                    <span>Filter</span>
+                    {activeFilterCount ? (
+                      <span aria-hidden="true" className="filter-count">
+                        {activeFilterCount}
+                      </span>
+                    ) : null}
+                  </button>
+                </div>
               </div>
+
+              {filtersOpen ? (
+                <div
+                  id="request-filters"
+                  className="filter-panel"
+                  role="group"
+                  aria-label="Request filters"
+                >
+                  <label className="filter-field">
+                    <span>Status</span>
+                    <select
+                      value={activeFilters.state}
+                      onChange={(event) =>
+                        setFilter("state", event.target.value as StateFilter)
+                      }
+                    >
+                      <option value="all">All statuses</option>
+                      {view === "inbox" ? (
+                        <>
+                          <option value="pending">Ready to answer</option>
+                          <option value="conflict">Needs attention</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="answered">Answered</option>
+                          <option value="cancelled">Cancelled</option>
+                        </>
+                      )}
+                    </select>
+                  </label>
+                  <label className="filter-field">
+                    <span>Priority</span>
+                    <select
+                      value={activeFilters.priority}
+                      onChange={(event) =>
+                        setFilter(
+                          "priority",
+                          event.target.value as PriorityFilter,
+                        )
+                      }
+                    >
+                      <option value="all">All priorities</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="high">High</option>
+                      <option value="normal">Normal</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </label>
+                  <button
+                    className="clear-filter-action"
+                    disabled={!activeFilterCount}
+                    type="button"
+                    onClick={clearFilters}
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              ) : null}
 
               {error ? (
                 <div className="load-error" role="alert">
@@ -333,7 +479,11 @@ export function PickleApp({
                   ))}
                 </div>
               ) : (
-                <EmptyState view={view} hasQuery={Boolean(query)} />
+                <EmptyState
+                  view={view}
+                  hasFilters={Boolean(activeFilterCount)}
+                  hasQuery={Boolean(query)}
+                />
               )}
             </div>
 
@@ -838,23 +988,35 @@ function LoadingRows() {
   );
 }
 
-function EmptyState({ view, hasQuery }: { view: View; hasQuery: boolean }) {
+function EmptyState({
+  view,
+  hasFilters,
+  hasQuery,
+}: {
+  view: View;
+  hasFilters: boolean;
+  hasQuery: boolean;
+}) {
   return (
     <div className="empty-state">
-      {hasQuery ? <Search size={23} /> : <Check size={23} />}
+      {hasQuery || hasFilters ? <Search size={23} /> : <Check size={23} />}
       <h2>
         {hasQuery
           ? "No matching requests"
-          : view === "inbox"
-            ? "No requests need a response"
-            : "No request history yet"}
+          : hasFilters
+            ? "No requests match these filters"
+            : view === "inbox"
+              ? "No requests need a response"
+              : "No request history yet"}
       </h2>
       <p>
         {hasQuery
           ? "Try a title, source, or tag."
-          : view === "inbox"
-            ? "New agent requests will appear here."
-            : "Answered and cancelled requests will appear here."}
+          : hasFilters
+            ? "Change or clear the active filters."
+            : view === "inbox"
+              ? "New agent requests will appear here."
+              : "Answered and cancelled requests will appear here."}
       </p>
     </div>
   );

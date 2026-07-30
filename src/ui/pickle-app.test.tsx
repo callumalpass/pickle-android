@@ -1,4 +1,6 @@
+import { Capacitor } from "@capacitor/core";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -7,13 +9,24 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const nativeApp = vi.hoisted(() => ({
+  addListener: vi.fn(),
+  minimizeApp: vi.fn(),
+}));
+
+vi.mock("@capacitor/app", () => ({ App: nativeApp }));
+
 import { FixturePickleRepository } from "../dev/fixture";
+import { pickleNotifications } from "../native/notifications";
 import { PickleApp } from "./pickle-app";
 
 describe("Pickle inbox", () => {
   afterEach(() => {
     document.documentElement.removeAttribute("data-theme");
     localStorage.clear();
+    vi.restoreAllMocks();
+    nativeApp.addListener.mockReset();
+    nativeApp.minimizeApp.mockReset();
   });
 
   it("loads pending requests and records a typed approval response", async () => {
@@ -99,6 +112,23 @@ describe("Pickle inbox", () => {
     );
     expect(screen.getByText("Oldest first")).toBeVisible();
 
+    fireEvent.click(screen.getByRole("button", { name: "Filter requests" }));
+    fireEvent.change(screen.getByLabelText("Status"), {
+      target: { value: "conflict" },
+    });
+    expect(screen.getByText("Conflicting environment choice")).toBeVisible();
+    expect(screen.queryByText("Approve production deployment")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Status"), {
+      target: { value: "all" },
+    });
+    fireEvent.change(screen.getByLabelText("Priority"), {
+      target: { value: "urgent" },
+    });
+    expect(screen.getByText("Approve production deployment")).toBeVisible();
+    expect(screen.queryByText("Replace the empty inbox copy")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+
     fireEvent.change(
       screen.getByPlaceholderText("Search title, source, or tag"),
       {
@@ -127,6 +157,15 @@ describe("Pickle inbox", () => {
       await screen.findByText("Documentation review complete"),
     ).toBeVisible();
     expect(screen.queryByText("Conflicting environment choice")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Filter requests" }));
+    fireEvent.change(screen.getByLabelText("Status"), {
+      target: { value: "cancelled" },
+    });
+    expect(
+      screen.getByRole("heading", {
+        name: "No requests match these filters",
+      }),
+    ).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     fireEvent.click(screen.getByRole("button", { name: "Dark" }));
@@ -134,5 +173,45 @@ describe("Pickle inbox", () => {
     expect(
       screen.getByText(/Pickle 0.3.0/).closest("footer"),
     ).toHaveTextContent("Records stay in your mdbase collection.");
+  });
+
+  it("returns from request detail before minimizing the native app", async () => {
+    const callbacks = new Map<string, (value: unknown) => void>();
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    vi.spyOn(pickleNotifications, "start").mockResolvedValue(undefined);
+    nativeApp.addListener.mockImplementation(
+      (eventName: string, callback: (value: unknown) => void) => {
+        callbacks.set(eventName, callback);
+        return Promise.resolve({ remove: vi.fn() });
+      },
+    );
+    nativeApp.minimizeApp.mockResolvedValue(undefined);
+
+    render(
+      <PickleApp
+        repository={new FixturePickleRepository()}
+        onDisconnect={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    );
+
+    act(() => callbacks.get("backButton")?.({ canGoBack: false }));
+
+    expect(
+      screen.queryByRole("heading", { name: "Approve production deployment" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /Approve production deployment/ }),
+    ).toBeVisible();
+    expect(nativeApp.minimizeApp).not.toHaveBeenCalled();
+    expect(
+      nativeApp.addListener.mock.calls.filter(
+        ([eventName]) => eventName === "backButton",
+      ),
+    ).toHaveLength(1);
   });
 });

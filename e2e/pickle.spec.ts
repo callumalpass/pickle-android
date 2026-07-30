@@ -63,6 +63,21 @@ test("supports sorting, responsive navigation, search, and themes", async ({
   ).toHaveText("Replace the empty inbox copy");
   await expect(page.getByText("Oldest first")).toBeVisible();
 
+  await page.getByRole("button", { name: "Filter requests" }).click();
+  await page.getByLabel("Status").selectOption("conflict");
+  await expect(page.getByText("Conflicting environment choice")).toBeVisible();
+  await expect(
+    page.getByText("Approve production deployment"),
+  ).not.toBeVisible();
+
+  await page.getByLabel("Status").selectOption("all");
+  await page.getByLabel("Priority").selectOption("urgent");
+  await expect(page.getByText("Approve production deployment")).toBeVisible();
+  await expect(
+    page.getByText("Replace the empty inbox copy"),
+  ).not.toBeVisible();
+  await page.getByRole("button", { name: "Clear filters" }).click();
+
   await page.getByPlaceholder("Search title, source, or tag").fill("interface");
   await expect(page.getByText("Replace the empty inbox copy")).toBeVisible();
   await expect(
