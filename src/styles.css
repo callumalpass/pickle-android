@@ -354,10 +354,17 @@ button:disabled {
   cursor: pointer;
 }
 
-.search-field {
+.request-tools {
+  display: grid;
+  margin: 10px 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(118px, auto);
+  gap: 8px;
+}
+
+.search-field,
+.sort-field {
   display: flex;
   height: 44px;
-  margin: 10px 20px;
   padding: 0 13px;
   align-items: center;
   gap: 9px;
@@ -367,12 +374,14 @@ button:disabled {
   border-radius: 6px;
 }
 
-.search-field:focus-within {
+.search-field:focus-within,
+.sort-field:focus-within {
   color: var(--accent);
   border-color: var(--accent);
 }
 
 .search-field input {
+  min-width: 0;
   width: 100%;
   height: 100%;
   padding: 0;
@@ -384,6 +393,25 @@ button:disabled {
 
 .search-field input::placeholder {
   color: var(--ink-muted);
+}
+
+.sort-field {
+  padding-right: 8px;
+  color: var(--ink-soft);
+  background: var(--paper-raised);
+}
+
+.sort-field select {
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  cursor: pointer;
 }
 
 .request-groups {

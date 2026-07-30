@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 
 import {
@@ -24,6 +25,22 @@ const targets = [
   ),
   resolve(import.meta.dirname, "..", "src", "generated", "mdbase-app.json"),
 ];
+const pickleTypePack = structuredClone(PICKLE_TYPE_PACK_PROVISION);
+const typePackDocuments = new Map(
+  pickleTypePack.resources.map((resource) => [
+    resource.source,
+    resource.document,
+  ]),
+);
+for (const resource of pickleTypePack.manifest.resources) {
+  const document = typePackDocuments.get(resource.source);
+  if (document === undefined) {
+    throw new Error(`Missing embedded type-pack resource: ${resource.source}`);
+  }
+  resource.digest = `sha256:${createHash("sha256")
+    .update(document, "utf8")
+    .digest("hex")}`;
+}
 
 const manifest = {
   manifest_version: 1,
@@ -45,7 +62,7 @@ const manifest = {
     access: "full_collection",
   },
   provisions: {
-    type_packs: [PICKLE_TYPE_PACK_PROVISION],
+    type_packs: [pickleTypePack],
   },
   notifications: {
     criteria: [

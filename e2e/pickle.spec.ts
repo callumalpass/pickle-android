@@ -53,8 +53,16 @@ test("uses collection-defined forms and history", async ({ page }) => {
   ).not.toBeVisible();
 });
 
-test("supports responsive navigation, search, and themes", async ({ page }) => {
+test("supports sorting, responsive navigation, search, and themes", async ({
+  page,
+}) => {
   await page.goto("/");
+  await page.getByLabel("Sort requests").selectOption("oldest");
+  await expect(
+    page.locator(".request-group-ready .request-title").first(),
+  ).toHaveText("Replace the empty inbox copy");
+  await expect(page.getByText("Oldest first")).toBeVisible();
+
   await page.getByPlaceholder("Search title, source, or tag").fill("interface");
   await expect(page.getByText("Replace the empty inbox copy")).toBeVisible();
   await expect(

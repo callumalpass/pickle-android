@@ -7,6 +7,7 @@ import type { PickleRequest } from "@mdbase/pickle";
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowUpDown,
   Bell,
   BellOff,
   Check,
@@ -38,6 +39,8 @@ import { ResponseForm } from "./response-form";
 import { applyTheme, currentTheme, type Theme } from "./theme";
 
 type View = "inbox" | "history" | "settings";
+type RequestView = Exclude<View, "settings">;
+type SortOrder = "urgency" | "newest" | "oldest" | "title";
 
 interface RequestGroup {
   id: string;
@@ -61,6 +64,10 @@ export function PickleApp({
   const [view, setView] = useState<View>("inbox");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [sortOrders, setSortOrders] = useState<Record<RequestView, SortOrder>>({
+    inbox: "urgency",
+    history: "newest",
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +136,8 @@ export function PickleApp({
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  const requestView: RequestView = view === "history" ? "history" : "inbox";
+  const sortOrder = sortOrders[requestView];
   const visibleRequests = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     const matching = requests.filter((request) => {
@@ -151,15 +160,17 @@ export function PickleApp({
           ))
       );
     });
-    return view === "inbox" ? matching.sort(compareInboxRequests) : matching;
-  }, [query, requests, view]);
+    return matching.sort((left, right) =>
+      compareRequests(left, right, sortOrder),
+    );
+  }, [query, requests, sortOrder, view]);
   const requestGroups = useMemo<RequestGroup[]>(() => {
     if (view === "history") {
       return [
         {
           id: "history",
           label: "Completed record",
-          description: "Answered and cancelled",
+          description: `Answered and cancelled · ${sortDescription(sortOrder)}`,
           requests: visibleRequests,
         },
       ];
@@ -180,11 +191,11 @@ export function PickleApp({
       {
         id: "ready",
         label: "Ready to answer",
-        description: "Ordered by urgency",
+        description: sortDescription(sortOrder),
         requests: pending,
       },
     ].filter((group) => group.requests.length);
-  }, [view, visibleRequests]);
+  }, [sortOrder, view, visibleRequests]);
   const selected =
     requests.find((request) => request.id === selectedId) ?? null;
   const pendingCount = requests.filter(
@@ -247,16 +258,36 @@ export function PickleApp({
                 </button>
               </header>
 
-              <label className="search-field">
-                <Search aria-hidden="true" size={17} />
-                <span className="sr-only">Search requests</span>
-                <input
-                  placeholder="Search title, source, or tag"
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-              </label>
+              <div className="request-tools">
+                <label className="search-field">
+                  <Search aria-hidden="true" size={17} />
+                  <span className="sr-only">Search requests</span>
+                  <input
+                    placeholder="Search title, source, or tag"
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                </label>
+                <label className="sort-field">
+                  <ArrowUpDown aria-hidden="true" size={16} />
+                  <span className="sr-only">Sort requests</span>
+                  <select
+                    value={sortOrder}
+                    onChange={(event) =>
+                      setSortOrders((current) => ({
+                        ...current,
+                        [requestView]: event.target.value as SortOrder,
+                      }))
+                    }
+                  >
+                    <option value="urgency">Urgency</option>
+                    <option value="newest">Newest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="title">Title A–Z</option>
+                  </select>
+                </label>
+              </div>
 
               {error ? (
                 <div className="load-error" role="alert">
@@ -908,6 +939,36 @@ function compareInboxRequests(
   const rightDue = timestamp(right.dueAt, Number.POSITIVE_INFINITY);
   if (leftDue !== rightDue) return leftDue - rightDue;
   return timestamp(right.createdAt, 0) - timestamp(left.createdAt, 0);
+}
+
+function compareRequests(
+  left: PickleRequest,
+  right: PickleRequest,
+  order: SortOrder,
+): number {
+  if (order === "urgency") return compareInboxRequests(left, right);
+  if (order === "newest") {
+    return timestamp(right.createdAt, 0) - timestamp(left.createdAt, 0);
+  }
+  if (order === "oldest") {
+    return (
+      timestamp(left.createdAt, Number.POSITIVE_INFINITY) -
+      timestamp(right.createdAt, Number.POSITIVE_INFINITY)
+    );
+  }
+  return (
+    left.title.localeCompare(right.title, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }) || timestamp(right.createdAt, 0) - timestamp(left.createdAt, 0)
+  );
+}
+
+function sortDescription(order: SortOrder): string {
+  if (order === "urgency") return "Highest urgency first";
+  if (order === "newest") return "Newest first";
+  if (order === "oldest") return "Oldest first";
+  return "Title A–Z";
 }
 
 function timestamp(value: string | undefined, fallback: number): number {

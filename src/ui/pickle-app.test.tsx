@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FixturePickleRepository } from "../dev/fixture";
@@ -79,6 +85,19 @@ describe("Pickle inbox", () => {
     ).toBeVisible();
     expect(screen.getByText("Needs attention")).toBeVisible();
     expect(screen.getByText("Ready to answer")).toBeVisible();
+    expect(screen.getByLabelText("Sort requests")).toHaveValue("urgency");
+
+    fireEvent.change(screen.getByLabelText("Sort requests"), {
+      target: { value: "oldest" },
+    });
+    const readyGroup = screen
+      .getByRole("heading", { name: "Ready to answer" })
+      .closest("section");
+    expect(readyGroup).not.toBeNull();
+    expect(within(readyGroup!).getAllByRole("button")[0]).toHaveTextContent(
+      "Replace the empty inbox copy",
+    );
+    expect(screen.getByText("Oldest first")).toBeVisible();
 
     fireEvent.change(
       screen.getByPlaceholderText("Search title, source, or tag"),
@@ -103,6 +122,7 @@ describe("Pickle inbox", () => {
     expect(screen.getByText("Conflicting responses")).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "History" }));
+    expect(screen.getByLabelText("Sort requests")).toHaveValue("newest");
     expect(
       await screen.findByText("Documentation review complete"),
     ).toBeVisible();

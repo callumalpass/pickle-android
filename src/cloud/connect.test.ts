@@ -62,4 +62,25 @@ describe("Pickle mdbase connection", () => {
       manifest: bundledManifest,
     });
   });
+
+  it("pins type-pack resources to their exact embedded documents", async () => {
+    for (const pack of bundledManifest.provisions.type_packs) {
+      const documents = new Map(
+        pack.resources.map((resource) => [resource.source, resource.document]),
+      );
+      for (const resource of pack.manifest.resources) {
+        const document = documents.get(resource.source);
+        expect(document).toBeDefined();
+        const digest = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(document),
+        );
+        expect(resource.digest).toBe(
+          `sha256:${Array.from(new Uint8Array(digest), (byte) =>
+            byte.toString(16).padStart(2, "0"),
+          ).join("")}`,
+        );
+      }
+    }
+  });
 });
