@@ -2,10 +2,10 @@
   "manifest_version": 1,
   "id": "com.callumalpass.pickle",
   "name": "Pickle",
-  "homepage": "http://127.0.0.1:4198/",
-  "icon": "http://127.0.0.1:4198/icon.svg",
+  "homepage": "https://pickle.mdbase.dev/",
+  "icon": "https://pickle.mdbase.dev/icon.svg",
   "redirect_uris": [
-    "http://127.0.0.1:4198/auth/mdbase/callback",
+    "https://pickle.mdbase.dev/auth/mdbase/callback",
     "com.callumalpass.pickle://auth/mdbase/callback"
   ],
   "requirements": {
