@@ -4,7 +4,7 @@ Read `PRODUCT.md` and `DESIGN.md` before changing user-facing behaviour or
 visuals.
 
 The application is web-first and packaged for Android through Capacitor. Keep
-all mdbase semantics in `@mdbase/pickle`; UI code must not implement a parallel
+all mdbase semantics in `@mdbase-dev/pickle`; UI code must not implement a parallel
 request lifecycle or direct filesystem protocol.
 
 Use mdbase connect for every collection operation and notification

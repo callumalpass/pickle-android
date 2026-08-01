@@ -1,7 +1,7 @@
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
-import { MdbaseConnectError } from "@mdbase/connect";
+import { MdbaseConnectError } from "@mdbase-dev/connect";
 import {
   useCallback,
   useEffect,

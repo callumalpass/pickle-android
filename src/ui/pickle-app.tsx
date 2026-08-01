@@ -2,8 +2,8 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
 import { Haptics, NotificationType } from "@capacitor/haptics";
-import type { JsonObject } from "@mdbase/connect";
-import type { PickleRequest } from "@mdbase/pickle";
+import type { JsonObject } from "@mdbase-dev/connect";
+import type { PickleRequest } from "@mdbase-dev/pickle";
 import {
   AlertTriangle,
   ArrowLeft,
