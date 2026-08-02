@@ -1,7 +1,7 @@
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
-import { MdbaseConnectError } from "@mdbase-dev/connect";
+import { MdbaseConnectError, unwrapConnectOutcome } from "@mdbase-dev/connect";
 import {
   useCallback,
   useEffect,
@@ -67,7 +67,9 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     setOpening(true);
     setError(null);
     try {
-      await pickleSession.handleAuthorizationCallback(url);
+      unwrapConnectOutcome(
+        await pickleSession.handleAuthorizationCallback(url),
+      );
     } catch (reason) {
       setError(connectionIssue(reason));
     } finally {
@@ -139,7 +141,8 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     void pickleSession
       .authorize("choose")
       .then((outcome) => {
-        if (outcome.kind === "connected") setOpening(false);
+        if (unwrapConnectOutcome(outcome).kind === "connected")
+          setOpening(false);
       })
       .catch((reason) => {
         setOpening(false);
