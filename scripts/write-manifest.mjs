@@ -4,7 +4,9 @@ import { resolve } from "node:path";
 
 import {
   PICKLE_NOTIFICATION_CRITERION,
+  PICKLE_NOTIFICATION_EVENT,
   PICKLE_REQUEST_CONTRACT,
+  PICKLE_REQUEST_CONTRACT_DIGEST,
   PICKLE_REQUEST_CONTRACT_VERSION,
   PICKLE_TYPE_PACK_PROVISION,
 } from "@mdbase-dev/pickle";
@@ -57,6 +59,7 @@ const manifest = {
       {
         id: PICKLE_REQUEST_CONTRACT,
         version: PICKLE_REQUEST_CONTRACT_VERSION,
+        digest: PICKLE_REQUEST_CONTRACT_DIGEST,
       },
     ],
     access: "full_collection",
@@ -68,7 +71,7 @@ const manifest = {
     criteria: [
       {
         id: PICKLE_NOTIFICATION_CRITERION,
-        event: { id: "mdbase.record.created", version: "1.0.0" },
+        event: PICKLE_NOTIFICATION_EVENT,
         if: { $expr: '"pickle_request" in event.payload.types' },
         debounce: "2s",
         presentation: {
