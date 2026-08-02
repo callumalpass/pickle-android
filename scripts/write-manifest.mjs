@@ -7,7 +7,7 @@ import {
   PICKLE_REQUEST_CONTRACT,
   PICKLE_REQUEST_CONTRACT_VERSION,
   PICKLE_TYPE_PACK_PROVISION,
-} from "@mdbase/pickle";
+} from "@mdbase-dev/pickle";
 
 const development = process.argv.includes("--development");
 const webOnly = process.env.PICKLE_WEB_ONLY === "1";

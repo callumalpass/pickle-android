@@ -3,9 +3,9 @@ import {
   PushNotifications,
   type PermissionStatus,
 } from "@capacitor/push-notifications";
-import { parseMdbaseNativeNotificationData } from "@mdbase/connect";
-import type { MdbaseConnection } from "@mdbase/connect";
-import { PICKLE_NOTIFICATION_CRITERION } from "@mdbase/pickle";
+import { parseMdbaseNativeNotificationData } from "@mdbase-dev/connect";
+import type { MdbaseConnection } from "@mdbase-dev/connect";
+import { PICKLE_NOTIFICATION_CRITERION } from "@mdbase-dev/pickle";
 
 import { activePickleConnection } from "../cloud/connect";
 

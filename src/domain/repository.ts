@@ -1,7 +1,7 @@
-import type { JsonObject, MdbaseConnection } from "@mdbase/connect";
-import type { PickleRequest } from "@mdbase/pickle";
-import { PickleCollection } from "@mdbase/pickle";
-import type { PickleFrontmatter } from "@mdbase/pickle";
+import type { JsonObject, MdbaseConnection } from "@mdbase-dev/connect";
+import type { PickleRequest } from "@mdbase-dev/pickle";
+import { PickleCollection } from "@mdbase-dev/pickle";
+import type { PickleFrontmatter } from "@mdbase-dev/pickle";
 
 export interface PickleRepository {
   readonly collectionId: string;

@@ -1,5 +1,5 @@
-import type { JsonObject } from "@mdbase/connect";
-import type { PickleRequest } from "@mdbase/pickle";
+import type { JsonObject } from "@mdbase-dev/connect";
+import type { PickleRequest } from "@mdbase-dev/pickle";
 import { useMemo, useState } from "react";
 
 const SYSTEM_FIELDS = new Set([

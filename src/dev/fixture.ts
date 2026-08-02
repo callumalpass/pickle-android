@@ -1,6 +1,6 @@
-import type { JsonObject } from "@mdbase/connect";
-import type { PickleRequest, PickleResponse } from "@mdbase/pickle";
-import type { CollectionTypeDescriptor } from "@mdbase/connect-protocol";
+import type { JsonObject } from "@mdbase-dev/connect";
+import type { PickleRequest, PickleResponse } from "@mdbase-dev/pickle";
+import type { CollectionTypeDescriptor } from "@mdbase-dev/connect-protocol";
 
 import type { PickleRepository } from "../domain/repository";
 

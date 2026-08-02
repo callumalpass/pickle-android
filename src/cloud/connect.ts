@@ -5,10 +5,10 @@ import {
   MdbaseConnect,
   type MdbaseConnection,
   type MdbaseSessionSnapshot,
-} from "@mdbase/connect";
+} from "@mdbase-dev/connect";
 
-import type { MdbaseAppManifest } from "@mdbase/connect-protocol";
-import type { PickleFrontmatter } from "@mdbase/pickle";
+import type { MdbaseAppManifest } from "@mdbase-dev/connect-protocol";
+import type { PickleFrontmatter } from "@mdbase-dev/pickle";
 import bundledManifest from "../generated/mdbase-app.json";
 
 export const PICKLE_OPERATIONS = [
