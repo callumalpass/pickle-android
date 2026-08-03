@@ -29,9 +29,9 @@
     "@capacitor/push-notifications": "8.0.2",
     "@fontsource/atkinson-hyperlegible": "5.3.0",
     "@fontsource/azeret-mono": "5.3.0",
-    "@mdbase-dev/connect": "0.1.0-beta.23",
-    "@mdbase-dev/connect-protocol": "0.1.0-beta.23",
-    "@mdbase-dev/pickle": "0.1.0-beta.23",
+    "@mdbase-dev/connect": "file:vendor/mdbase-dev-connect-0.1.0-beta.27-33890fcd1346.tgz",
+    "@mdbase-dev/connect-protocol": "file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.27-33890fcd1346.tgz",
+    "@mdbase-dev/pickle": "file:vendor/mdbase-dev-pickle-0.1.0-beta.27-33890fcd1346.tgz",
     "lucide-react": "1.25.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
