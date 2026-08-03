@@ -1,4 +1,12 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import bundledManifest from "../generated/mdbase-app.json";
 import {
@@ -8,6 +16,12 @@ import {
 } from "./connect";
 
 describe("Pickle mdbase connection", () => {
+  beforeAll(async () => {
+    await pickleSession.start();
+  });
+
+  afterAll(() => pickleSession.destroy());
+
   afterEach(() => {
     history.replaceState(null, "", "/");
     vi.restoreAllMocks();

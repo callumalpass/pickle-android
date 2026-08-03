@@ -4,20 +4,12 @@ import {
   MdbaseBrowserSelection,
   MdbaseConnect,
   type MdbaseConnection,
-  type MdbaseSessionSnapshot,
+  type MdbaseApplicationSessionSnapshot,
 } from "@mdbase-dev/connect";
 
 import type { MdbaseAppManifest } from "@mdbase-dev/connect-protocol";
 import type { PickleFrontmatter } from "@mdbase-dev/pickle";
 import bundledManifest from "../generated/mdbase-app.json";
-
-export const PICKLE_OPERATIONS = [
-  "describe",
-  "changes",
-  "read",
-  "query",
-  "create",
-] as const;
 
 const serverUrl =
   import.meta.env.VITE_MDBASE_CONNECT_URL ?? "https://connect.mdbase.dev";
@@ -37,14 +29,13 @@ export const pickleConnect = new MdbaseConnect<PickleFrontmatter>({
     : undefined,
 });
 
-export const pickleSession = pickleConnect.createSession({
-  operations: [...PICKLE_OPERATIONS],
+export const pickleSession = pickleConnect.createApplicationSession({
   selection: new MdbaseBrowserSelection({
     fallbackPath: joinBase(""),
   }),
 });
 
-export function pickleSnapshot(): MdbaseSessionSnapshot<PickleFrontmatter> {
+export function pickleSnapshot(): MdbaseApplicationSessionSnapshot {
   return pickleSession.getSnapshot();
 }
 
@@ -53,8 +44,7 @@ export function subscribeToPickleSession(listener: () => void): () => void {
 }
 
 export function activePickleConnection(): MdbaseConnection<PickleFrontmatter> | null {
-  const snapshot = pickleSnapshot();
-  return snapshot.status === "ready" ? snapshot.connection : null;
+  return pickleSession.connection();
 }
 
 export function isNativeMdbaseCallback(value: string): boolean {

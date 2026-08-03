@@ -16,6 +16,18 @@
         "digest": "sha256:5a96bbda301de6ec2f71a5083f62769463b4e613ed8ba860d62170b8c810db61"
       }
     ],
+    "capabilities": {
+      "contract_version": 1,
+      "required": [
+        "collection.inspect",
+        "records.watch",
+        "records.read",
+        "records.query",
+        "records.create",
+        "definitions.type-pack.apply"
+      ],
+      "optional": ["notifications.background-delivery"]
+    },
     "access": "full_collection"
   },
   "provisions": {
@@ -95,9 +107,7 @@
           "version": "1.0.0",
           "digest": "sha256:7f3bed6baa356ee9389e977ae7b77a102e2bee871a7c1d9f2026fc21cacdbfc9"
         },
-        "if": {
-          "$expr": "\"pickle_request\" in event.payload.types"
-        },
+        "if": { "$expr": "\"pickle_request\" in event.payload.types" },
         "debounce": "2s",
         "presentation": {
           "title": "New Pickle request",
