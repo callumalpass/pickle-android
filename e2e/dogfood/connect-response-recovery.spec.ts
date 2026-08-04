@@ -44,7 +44,7 @@ async function authorize(page: Page): Promise<void> {
   const collection = page.locator('input[type="radio"]').first();
   await expect(collection).toBeAttached();
   if (!(await collection.isChecked())) await collection.check();
-  await page.getByRole("button", { name: "Allow Pickle" }).click();
+  await page.getByRole("button", { name: /allow Pickle$/i }).click();
 
   const inbox = page.getByRole("heading", { name: "Inbox" });
   const applyDefinitions = page.getByRole("button", {
