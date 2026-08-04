@@ -107,7 +107,9 @@
           "version": "1.0.0",
           "digest": "sha256:7f3bed6baa356ee9389e977ae7b77a102e2bee871a7c1d9f2026fc21cacdbfc9"
         },
-        "if": { "$expr": "\"pickle_request\" in event.payload.types" },
+        "if": {
+          "$expr": "event.data.types != null && \"pickle_request\" in event.data.types"
+        },
         "debounce": "2s",
         "presentation": {
           "title": "New Pickle request",

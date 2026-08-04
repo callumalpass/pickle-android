@@ -13,6 +13,8 @@ import bundledManifest from "../generated/mdbase-app.json";
 
 const serverUrl =
   import.meta.env.VITE_MDBASE_CONNECT_URL ?? "https://connect.mdbase.dev";
+const loopbackUrl =
+  import.meta.env.VITE_MDBASE_CONNECT_LOOPBACK_URL ?? "http://127.0.0.1:28485";
 const manifest =
   import.meta.env.VITE_MDBASE_MANIFEST_URL ??
   (bundledManifest as MdbaseAppManifest);
@@ -22,6 +24,7 @@ const redirectUri = Capacitor.isNativePlatform()
 
 export const pickleConnect = new MdbaseConnect<PickleFrontmatter>({
   serverUrl,
+  loopbackUrl,
   manifest,
   redirectUri,
   navigate: Capacitor.isNativePlatform()

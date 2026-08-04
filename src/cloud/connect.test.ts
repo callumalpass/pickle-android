@@ -97,4 +97,10 @@ describe("Pickle mdbase connection", () => {
       }
     }
   });
+
+  it("filters record events through the canonical CloudEvent data field", () => {
+    expect(bundledManifest.notifications.criteria[0]?.if).toEqual({
+      $expr: 'event.data.types != null && "pickle_request" in event.data.types',
+    });
+  });
 });
