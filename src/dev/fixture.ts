@@ -1,5 +1,10 @@
-import type { JsonObject } from "@mdbase-dev/connect";
-import type { PickleRequest, PickleResponse } from "@mdbase-dev/pickle";
+import type { ConnectRequestOptions, JsonObject } from "@mdbase-dev/connect";
+import type {
+  PicklePendingResponse,
+  PickleRequest,
+  PickleResponse,
+  PickleResponseSubmission,
+} from "@mdbase-dev/pickle";
 import type { CollectionTypeDescriptor } from "@mdbase-dev/connect-protocol";
 
 import type { PickleRepository } from "../domain/repository";
@@ -156,8 +161,10 @@ export class FixturePickleRepository implements PickleRepository {
   async respond(
     requestToAnswer: PickleRequest,
     payload: JsonObject,
-  ): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    options: ConnectRequestOptions = {},
+  ): Promise<PickleResponseSubmission> {
+    await fixtureDelay(options.signal);
+    const responsePath = `responses/${requestToAnswer.id}.md`;
     this.requests = this.requests.map((item) =>
       item.id === requestToAnswer.id
         ? {
@@ -165,7 +172,7 @@ export class FixturePickleRepository implements PickleRepository {
             state: "answered",
             responseCount: 1,
             response: {
-              path: `responses/${item.id}.md`,
+              path: responsePath,
               type: item.responseType,
               responder: "human",
               respondedAt: new Date().toISOString(),
@@ -176,12 +183,45 @@ export class FixturePickleRepository implements PickleRepository {
         : item,
     );
     this.listeners.forEach((listener) => listener());
+    return {
+      kind: "recorded",
+      record: {
+        path: responsePath,
+        frontmatter: { ...payload, type: requestToAnswer.responseType },
+      },
+    } as PickleResponseSubmission;
+  }
+
+  pendingResponse(): PicklePendingResponse | null {
+    return null;
+  }
+
+  async recoverResponse(): Promise<PickleResponseSubmission> {
+    throw new Error("The fixture has no pending response.");
   }
 
   subscribe(onChange: () => void): () => void {
     this.listeners.add(onChange);
     return () => this.listeners.delete(onChange);
   }
+}
+
+function fixtureDelay(signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timer = setTimeout(resolve, 180);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
 }
 
 function request(

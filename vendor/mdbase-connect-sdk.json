@@ -1,25 +1,25 @@
 {
   "schema_version": 1,
   "repository": "https://github.com/mdbase-dev/mdbase-connect",
-  "revision": "58665cbf4e9a8fdf03e9811fe8fe3c0b573dc9f0",
+  "revision": "4680eadb3b06d70d83edfdfeb5940e00c5e06aee",
   "artifacts": [
     {
       "package": "connect",
-      "file": "mdbase-dev-connect-0.1.0-beta.28-58665cbf4e9a.tgz",
-      "bytes": 119991,
-      "sha512": "n4wFqmFQ4XpbPUQbFWGDI/NgfRA5FZLIaeXdVVQJZpiZ1V4C1Es17gXCvhrLDiD/cj/hgkBvcmiZ82nACWHt8g=="
+      "file": "mdbase-dev-connect-0.1.0-beta.32-4680eadb3b06.tgz",
+      "bytes": 133405,
+      "sha512": "S4Vux4zL1fOhu84Iqhs5i1Bsy4qkSY4YpcFqq5/u1TrVCFFeqKBKtPULim5a99rxo5iqmOQ/6h1yhcxCTVzosQ=="
     },
     {
       "package": "protocol",
-      "file": "mdbase-dev-connect-protocol-0.1.0-beta.28-58665cbf4e9a.tgz",
-      "bytes": 40563,
-      "sha512": "C6ffo2mGlWAXeVIRCEwSwWDJoczCvuT5gkPYswZ1ERQuvQoVomJzw6vvtKBZTIEbjLEZCpUpf3HdbxRw3ZE07Q=="
+      "file": "mdbase-dev-connect-protocol-0.1.0-beta.32-4680eadb3b06.tgz",
+      "bytes": 49658,
+      "sha512": "tMg41eOcp46iMTC7Xjo9aFwL0l59+FS20VmNHchzYF4GznuGXdBFwr7tO/V9e2FFSBMFMnQH2CJnkCWc/7cpiQ=="
     },
     {
       "package": "pickle",
-      "file": "mdbase-dev-pickle-0.1.0-beta.28-58665cbf4e9a.tgz",
-      "bytes": 7591,
-      "sha512": "eNJ26IxueOmkPduEoZs1RrnBkFDzNJ0rWCV41i0icsYpEjjTRj1sGsQnYXp9mhwZ0hsSK+EN52GCIbtc2UXmsA=="
+      "file": "mdbase-dev-pickle-0.1.0-beta.32-4680eadb3b06.tgz",
+      "bytes": 8056,
+      "sha512": "ydBfLWCtLW20Ds9XVgUJ8b+CK9KAyfOSTDygQm+KVwLfpFRdiX8/8ALY3oIrhWRKM5QgwFhEpmcCLssO14mv7w=="
     }
   ]
 }

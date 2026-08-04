@@ -29,7 +29,7 @@ export const pickleConnect = new MdbaseConnect<PickleFrontmatter>({
     : undefined,
 });
 
-export const pickleSession = pickleConnect.createApplicationSession({
+export const pickleSession = pickleConnect.application({
   selection: new MdbaseBrowserSelection({
     fallbackPath: joinBase(""),
   }),

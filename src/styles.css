@@ -238,6 +238,46 @@ button:disabled {
   padding-bottom: calc(68px + env(safe-area-inset-bottom));
 }
 
+.response-recovery {
+  display: grid;
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: calc(14px + env(safe-area-inset-top)) 20px 14px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  color: var(--danger);
+  background: var(--paper-soft);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.response-recovery strong {
+  color: var(--ink);
+}
+
+.response-recovery p {
+  margin: 3px 0 0;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.response-recovery button {
+  min-height: 44px;
+  justify-self: start;
+  grid-column: 2;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.response-recovery button:disabled {
+  color: var(--ink-muted);
+  cursor: default;
+}
+
 .primary-nav {
   position: fixed;
   z-index: 20;
