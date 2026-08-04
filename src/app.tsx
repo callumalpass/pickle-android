@@ -47,7 +47,7 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     [fixtureMode],
   );
   const sessionConnection =
-    snapshot.status === "ready" ? snapshot.connection : null;
+    snapshot.status === "ready" ? pickleSession.connection() : null;
   const connectedRepository = useMemo(
     () =>
       sessionConnection
@@ -81,9 +81,12 @@ export function App({ repository: initialRepository }: AppProps = {}) {
   useEffect(() => {
     if (!usesSession) return;
     let active = true;
-    void pickleSession.start().catch((reason: unknown) => {
-      if (active) setError(connectionIssue(reason));
-    });
+    void pickleSession
+      .start()
+      .then(unwrapConnectOutcome)
+      .catch((reason: unknown) => {
+        if (active) setError(connectionIssue(reason));
+      });
     if (!Capacitor.isNativePlatform()) {
       return () => {
         active = false;
@@ -139,7 +142,9 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     setOpening(true);
     setError(null);
     void pickleSession
-      .authorize("choose")
+      .authorize(
+        snapshot.status === "authorization_required" ? "selected" : "choose",
+      )
       .then((outcome) => {
         if (unwrapConnectOutcome(outcome).kind === "connected")
           setOpening(false);
@@ -162,7 +167,20 @@ export function App({ repository: initialRepository }: AppProps = {}) {
                 ? "Pickle no longer has access to this collection."
                 : "This bookmarked collection is not authorized on this device.",
         }
-      : null;
+      : snapshot.status === "authorization_required"
+        ? {
+            code: "authorization_required",
+            title: "Review updated access",
+            message:
+              "Pickle’s required access or source-of-truth contract changed. Review it in mdbase to continue.",
+          }
+        : snapshot.status === "blocked"
+          ? {
+              code: snapshot.problem.code,
+              title: "This collection needs attention",
+              message: snapshot.problem.message,
+            }
+          : null;
   const displayedError = error ?? unavailableIssue;
 
   return (
@@ -181,6 +199,48 @@ export function App({ repository: initialRepository }: AppProps = {}) {
           <strong>{displayedError.title}</strong>
           <p>{displayedError.message}</p>
         </div>
+      ) : null}
+      {snapshot.status === "checking_definitions" ? (
+        <p role="status">Checking this collection’s Pickle definitions…</p>
+      ) : null}
+      {snapshot.status === "definition_review_required" ? (
+        <section
+          className="connection-error"
+          aria-labelledby="pickle-definition-update"
+        >
+          <strong id="pickle-definition-update">
+            Pickle definitions changed
+          </strong>
+          <p>
+            Review the source-of-truth changes before updating this collection.
+            Existing requests are not changed by this step.
+          </p>
+          <ul>
+            {snapshot.updates.map((update) => (
+              <li key={update.id}>
+                {update.name}: {update.currentVersion ?? "not installed"} →{" "}
+                {update.desiredVersion}
+              </li>
+            ))}
+          </ul>
+          <button
+            className="outline-action"
+            disabled={
+              opening || snapshot.updates.some((update) => !update.canApply)
+            }
+            type="button"
+            onClick={() => {
+              setOpening(true);
+              void pickleSession
+                .applyDefinitionUpdates()
+                .then(unwrapConnectOutcome)
+                .catch((reason) => setError(connectionIssue(reason)))
+                .finally(() => setOpening(false));
+            }}
+          >
+            Review and update definitions
+          </button>
+        </section>
       ) : null}
       <div className="connection-actions">
         {snapshot.connections.map((connection) => (
@@ -206,9 +266,11 @@ export function App({ repository: initialRepository }: AppProps = {}) {
         >
           {opening
             ? "Opening mdbase…"
-            : snapshot.connections.length
-              ? "Connect another collection"
-              : "Continue to mdbase"}
+            : snapshot.status === "authorization_required"
+              ? "Review updated access"
+              : snapshot.connections.length
+                ? "Connect another collection"
+                : "Continue to mdbase"}
         </button>
         <small>
           Pickle never asks for a server address, collection path, or network

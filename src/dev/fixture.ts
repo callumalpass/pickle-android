@@ -145,7 +145,7 @@ const samples: PickleRequest[] = [
 
 export class FixturePickleRepository implements PickleRepository {
   readonly collectionId = "demo-pickle-collection";
-  readonly route = "fixture" as const;
+  readonly authority = "fixture" as const;
   private requests = structuredClone(samples);
   private listeners = new Set<() => void>();
 

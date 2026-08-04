@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
+import { format } from "prettier";
 
 import {
   PICKLE_NOTIFICATION_CRITERION,
@@ -62,6 +63,18 @@ const manifest = {
         digest: PICKLE_REQUEST_CONTRACT_DIGEST,
       },
     ],
+    capabilities: {
+      contract_version: 1,
+      required: [
+        "collection.inspect",
+        "records.watch",
+        "records.read",
+        "records.query",
+        "records.create",
+        "definitions.type-pack.apply",
+      ],
+      optional: ["notifications.background-delivery"],
+    },
     access: "full_collection",
   },
   provisions: {
@@ -89,7 +102,7 @@ const manifest = {
   },
 };
 
-const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
+const serialized = await format(JSON.stringify(manifest), { parser: "json" });
 await Promise.all(
   targets.map(async (target) => {
     await mkdir(resolve(target, ".."), { recursive: true });

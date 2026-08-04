@@ -931,9 +931,11 @@ function SettingsView({
           </div>
           <dl className="connection-facts">
             <div>
-              <dt>{repository.route === "remote" ? <Cloud /> : <Monitor />}</dt>
+              <dt>
+                {repository.authority === "hosted" ? <Cloud /> : <Monitor />}
+              </dt>
               <dd>
-                <strong>{routeLabel(repository.route)}</strong>
+                <strong>{authorityLabel(repository.authority)}</strong>
                 <span>{repository.collectionId}</span>
               </dd>
             </div>
@@ -1051,10 +1053,9 @@ function notificationDescription(state: NotificationState): string {
   return "Off. You can still refresh the inbox at any time.";
 }
 
-function routeLabel(route: PickleRepository["route"]): string {
-  if (route === "remote") return "mdbase cloud";
-  if (route === "direct") return "Local mdbase connector";
-  if (route === "relay") return "mdbase connect relay";
+function authorityLabel(authority: PickleRepository["authority"]): string {
+  if (authority === "hosted") return "Hosted by mdbase";
+  if (authority === "connector") return "On a connected computer";
   return "Interface test collection";
 }
 
