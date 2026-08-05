@@ -2,11 +2,6 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
 import {
-  ConnectOutcomeError,
-  MdbaseConnectError,
-  unwrapConnectOutcome,
-} from "@mdbase-dev/connect";
-import {
   useCallback,
   useEffect,
   useMemo,
@@ -23,6 +18,10 @@ import {
   pickleSnapshot,
   subscribeToPickleSession,
 } from "./cloud/connect";
+import {
+  connectProblemFromError,
+  requireConnectOutcome,
+} from "./cloud/outcome";
 import { FixturePickleRepository } from "./dev/fixture";
 import {
   ConnectedPickleRepository,
@@ -81,7 +80,7 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     setOpening(true);
     setError(null);
     try {
-      unwrapConnectOutcome(
+      requireConnectOutcome(
         await pickleSession.handleAuthorizationCallback(url, {
           signal: controller.signal,
           timeoutMs: 20_000,
@@ -105,7 +104,7 @@ export function App({ repository: initialRepository }: AppProps = {}) {
       startup = controller;
       void pickleSession
         .start({ signal: controller.signal, timeoutMs: 15_000 })
-        .then(unwrapConnectOutcome)
+        .then(requireConnectOutcome)
         .catch((reason: unknown) => {
           if (active && !controller.signal.aborted)
             setError(connectionIssue(reason));
@@ -211,7 +210,7 @@ export function App({ repository: initialRepository }: AppProps = {}) {
         { signal: controller.signal, timeoutMs: 30_000 },
       )
       .then((outcome) => {
-        if (unwrapConnectOutcome(outcome).kind === "connected") {
+        if (requireConnectOutcome(outcome).kind === "connected") {
           authorizationPending.current = false;
           setOpening(false);
         }
@@ -268,10 +267,10 @@ export function App({ repository: initialRepository }: AppProps = {}) {
           <p>{displayedError.message}</p>
         </div>
       ) : null}
-      {snapshot.status === "checking_definitions" ? (
+      {snapshot.status === "checking_setup" ? (
         <p role="status">Checking this collection’s Pickle definitions…</p>
       ) : null}
-      {snapshot.status === "definition_review_required" ? (
+      {snapshot.status === "setup_review_required" ? (
         <section
           className="connection-error"
           aria-labelledby="pickle-definition-update"
@@ -284,7 +283,7 @@ export function App({ repository: initialRepository }: AppProps = {}) {
             Existing requests are not changed by this step.
           </p>
           <ul>
-            {snapshot.updates.map((update) => (
+            {snapshot.update.typePacks.map((update) => (
               <li key={update.id}>
                 {update.name}: {update.currentVersion ?? "not installed"} →{" "}
                 {update.desiredVersion}
@@ -293,19 +292,17 @@ export function App({ repository: initialRepository }: AppProps = {}) {
           </ul>
           <button
             className="outline-action"
-            disabled={
-              opening || snapshot.updates.some((update) => !update.canApply)
-            }
+            disabled={opening || !snapshot.update.canApply}
             type="button"
             onClick={() => {
               const controller = replaceController(definitionRequest);
               setOpening(true);
               void pickleSession
-                .applyDefinitionUpdates({
+                .applyCollectionSetup({
                   signal: controller.signal,
                   timeoutMs: 30_000,
                 })
-                .then(unwrapConnectOutcome)
+                .then(requireConnectOutcome)
                 .catch((reason) => setError(connectionIssue(reason)))
                 .finally(() => setOpening(false));
             }}
@@ -354,11 +351,9 @@ export function App({ repository: initialRepository }: AppProps = {}) {
 }
 
 function connectionIssue(reason: unknown): ConnectionIssue {
-  if (
-    reason instanceof ConnectOutcomeError ||
-    reason instanceof MdbaseConnectError
-  ) {
-    const code = reason.problem.code;
+  const problem = connectProblemFromError(reason);
+  if (problem) {
+    const code = problem.code;
     if (code === "invalid_callback" || code === "expired_token") {
       return {
         code,
@@ -370,7 +365,7 @@ function connectionIssue(reason: unknown): ConnectionIssue {
     return {
       code,
       title: "Could not connect this collection",
-      message: reason.problem.message,
+      message: problem.message,
     };
   }
   return {

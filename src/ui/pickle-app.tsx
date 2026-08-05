@@ -2,11 +2,7 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
 import { Haptics, NotificationType } from "@capacitor/haptics";
-import {
-  ConnectOutcomeError,
-  type ConnectProblem,
-  type JsonObject,
-} from "@mdbase-dev/connect";
+import type { ConnectProblem, JsonObject } from "@mdbase-dev/connect";
 import type { PickleRequest } from "@mdbase-dev/pickle";
 import {
   AlertTriangle,
@@ -35,6 +31,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import markUrl from "../assets/pickle-mark.svg";
+import { connectProblemFromError } from "../cloud/outcome";
 import type { PickleRepository } from "../domain/repository";
 import {
   pickleNotifications,
@@ -1311,8 +1308,8 @@ async function openLink(url: string): Promise<void> {
 }
 
 function issueMessage(reason: unknown): string {
-  if (reason instanceof ConnectOutcomeError)
-    return problemMessage(reason.problem);
+  const problem = connectProblemFromError(reason);
+  if (problem) return problemMessage(problem);
   return reason instanceof Error ? reason.message : String(reason);
 }
 

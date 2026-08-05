@@ -71,7 +71,7 @@ const manifest = {
         "records.read",
         "records.query",
         "records.create",
-        "definitions.type-pack.apply",
+        "collection.setup.apply",
       ],
       optional: ["notifications.background-delivery"],
     },

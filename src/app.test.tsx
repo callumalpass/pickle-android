@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
-import { connectSuccess } from "@mdbase-dev/connect";
+import type { MdbaseAppManifest } from "@mdbase-dev/connect";
+import { connectSuccess } from "@mdbase-dev/connect-testing";
 import {
   act,
   fireEvent,
@@ -7,7 +8,15 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 const nativeApp = vi.hoisted(() => ({
   addListener: vi.fn(),
@@ -22,9 +31,32 @@ vi.mock("@capacitor/app", () => ({ App: nativeApp }));
 vi.mock("@capacitor/browser", () => ({ Browser: nativeBrowser }));
 
 import { App } from "./app";
-import { pickleSession } from "./cloud/connect";
+import bundledManifest from "./generated/mdbase-app.json";
+import { pickleConnect, pickleSession } from "./cloud/connect";
+import { requireConnectOutcome } from "./cloud/outcome";
 
 describe("Pickle connection", () => {
+  beforeAll(async () => {
+    vi.spyOn(pickleConnect, "register").mockResolvedValue(
+      connectSuccess({
+        id: "pickle-test-application",
+        family_identity: "bundle:com.callumalpass.pickle",
+        manifest_digest: "0".repeat(64),
+        name: "Pickle",
+        homepage: "https://pickle.mdbase.dev/",
+        requirements: bundledManifest.requirements as NonNullable<
+          MdbaseAppManifest["requirements"]
+        >,
+      }),
+    );
+    vi.spyOn(pickleConnect, "manifest").mockResolvedValue(
+      connectSuccess(bundledManifest as MdbaseAppManifest),
+    );
+    requireConnectOutcome(await pickleSession.start());
+  });
+
+  afterAll(() => pickleSession.destroy());
+
   afterEach(() => {
     localStorage.clear();
     pickleSession.clearSelection({ history: "replace" });

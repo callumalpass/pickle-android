@@ -1,5 +1,5 @@
 import { Capacitor } from "@capacitor/core";
-import { connectSuccess } from "@mdbase-dev/connect";
+import { connectSuccess } from "@mdbase-dev/connect-testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.hoisted(() => ({

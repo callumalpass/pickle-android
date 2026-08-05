@@ -5,13 +5,13 @@ import {
 } from "@capacitor/push-notifications";
 import {
   parseMdbaseNativeNotificationData,
-  unwrapConnectOutcome,
   type ConnectRequestOptions,
   type MdbaseConnection,
 } from "@mdbase-dev/connect";
 import { PICKLE_NOTIFICATION_CRITERION } from "@mdbase-dev/pickle";
 
 import { activePickleConnection } from "../cloud/connect";
+import { requireConnectOutcome } from "../cloud/outcome";
 
 export type NotificationState =
   | "unavailable"
@@ -122,7 +122,7 @@ export class PickleNotifications {
     if (!Capacitor.isNativePlatform()) return;
     const connection = this.connection();
     if (connection) {
-      unwrapConnectOutcome(
+      requireConnectOutcome(
         await connection.unregisterNativeNotifications(
           withTimeout(options, NOTIFICATION_TIMEOUT_MS),
         ),
@@ -224,7 +224,7 @@ export class PickleNotifications {
     token: string,
     options: ConnectRequestOptions = {},
   ): Promise<void> {
-    unwrapConnectOutcome(
+    requireConnectOutcome(
       await connection.registerNativeNotifications({
         token,
         criteria: [PICKLE_NOTIFICATION_CRITERION],
