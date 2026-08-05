@@ -3,11 +3,15 @@ import {
   PushNotifications,
   type PermissionStatus,
 } from "@capacitor/push-notifications";
-import { parseMdbaseNativeNotificationData } from "@mdbase-dev/connect";
-import type { MdbaseConnection } from "@mdbase-dev/connect";
+import {
+  parseMdbaseNativeNotificationData,
+  type ConnectRequestOptions,
+  type MdbaseConnection,
+} from "@mdbase-dev/connect";
 import { PICKLE_NOTIFICATION_CRITERION } from "@mdbase-dev/pickle";
 
 import { activePickleConnection } from "../cloud/connect";
+import { requireConnectOutcome } from "../cloud/outcome";
 
 export type NotificationState =
   | "unavailable"
@@ -20,6 +24,7 @@ export type NotificationState =
 
 const PREFERENCE_KEY = "pickle.notifications.enabled";
 const TOKEN_KEY = "pickle.notifications.fcm_token";
+const NOTIFICATION_TIMEOUT_MS = 15_000;
 export const PICKLE_NOTIFICATION_CHANNEL = "mdbase-updates";
 
 type NotificationConnection = Pick<
@@ -57,9 +62,13 @@ export class PickleNotifications {
     return () => this.statusListeners.delete(listener);
   }
 
-  async start(onSignal: () => void): Promise<void> {
+  async start(
+    onSignal: () => void,
+    options: ConnectRequestOptions = {},
+  ): Promise<void> {
     this.signalListener = onSignal;
     if (!Capacitor.isNativePlatform() || this.started) return;
+    throwIfAborted(options.signal);
     this.started = true;
     await PushNotifications.createChannel({
       id: PICKLE_NOTIFICATION_CHANNEL,
@@ -86,30 +95,40 @@ export class PickleNotifications {
         },
       ),
     ]);
+    throwIfAborted(options.signal);
     const permission = await PushNotifications.checkPermissions();
     if (permission.receive === "denied") {
       this.setState("denied");
     } else if (localStorage.getItem(PREFERENCE_KEY) === "true") {
-      await this.register(permission);
+      await this.register(permission, options);
     } else {
       this.setState(permission.receive === "prompt" ? "prompt" : "off");
     }
   }
 
-  async enable(): Promise<void> {
+  async enable(options: ConnectRequestOptions = {}): Promise<void> {
     if (!Capacitor.isNativePlatform()) return;
+    throwIfAborted(options.signal);
     this.setState("enabling");
     localStorage.setItem(PREFERENCE_KEY, "true");
     let permission = await PushNotifications.checkPermissions();
     if (permission.receive === "prompt") {
       permission = await PushNotifications.requestPermissions();
     }
-    await this.register(permission);
+    await this.register(permission, options);
   }
 
-  async disable(): Promise<void> {
+  async disable(options: ConnectRequestOptions = {}): Promise<void> {
     if (!Capacitor.isNativePlatform()) return;
-    await this.connection()?.unregisterNativeNotifications();
+    const connection = this.connection();
+    if (connection) {
+      requireConnectOutcome(
+        await connection.unregisterNativeNotifications(
+          withTimeout(options, NOTIFICATION_TIMEOUT_MS),
+        ),
+      );
+    }
+    throwIfAborted(options.signal);
     await PushNotifications.unregister();
     localStorage.setItem(PREFERENCE_KEY, "false");
     localStorage.removeItem(TOKEN_KEY);
@@ -119,6 +138,7 @@ export class PickleNotifications {
 
   async bindConnection(
     connection: NotificationConnection | null,
+    options: ConnectRequestOptions = {},
   ): Promise<void> {
     const previous =
       this.boundConnection === undefined
@@ -131,7 +151,13 @@ export class PickleNotifications {
     if (!Capacitor.isNativePlatform()) return;
     if (localStorage.getItem(PREFERENCE_KEY) !== "true") return;
 
-    await previous?.unregisterNativeNotifications().catch(() => undefined);
+    if (previous) {
+      const outcome = await previous.unregisterNativeNotifications(
+        withTimeout(options, NOTIFICATION_TIMEOUT_MS),
+      );
+      if (!outcome.ok) this.setState("error");
+    }
+    throwIfAborted(options.signal);
     if (sequence !== this.bindSequence) return;
     if (!connection) {
       this.setState("off");
@@ -145,7 +171,7 @@ export class PickleNotifications {
       return;
     }
     try {
-      await this.registerConnection(connection, token);
+      await this.registerConnection(connection, token, options);
     } catch {
       if (sequence === this.bindSequence) this.setState("error");
     }
@@ -157,12 +183,16 @@ export class PickleNotifications {
     this.started = false;
   }
 
-  private async register(permission: PermissionStatus): Promise<void> {
+  private async register(
+    permission: PermissionStatus,
+    options: ConnectRequestOptions,
+  ): Promise<void> {
     if (permission.receive !== "granted") {
       localStorage.setItem(PREFERENCE_KEY, "false");
       this.setState(permission.receive === "denied" ? "denied" : "prompt");
       return;
     }
+    throwIfAborted(options.signal);
     await PushNotifications.register();
   }
 
@@ -192,11 +222,15 @@ export class PickleNotifications {
   private async registerConnection(
     connection: NotificationConnection,
     token: string,
+    options: ConnectRequestOptions = {},
   ): Promise<void> {
-    await connection.registerNativeNotifications({
-      token,
-      criteria: [PICKLE_NOTIFICATION_CRITERION],
-    });
+    requireConnectOutcome(
+      await connection.registerNativeNotifications({
+        token,
+        criteria: [PICKLE_NOTIFICATION_CRITERION],
+        ...withTimeout(options, NOTIFICATION_TIMEOUT_MS),
+      }),
+    );
     this.setState("enabled");
   }
 
@@ -204,6 +238,17 @@ export class PickleNotifications {
     this.state = state;
     this.statusListeners.forEach((listener) => listener(state));
   }
+}
+
+function withTimeout(
+  options: ConnectRequestOptions,
+  timeoutMs: number,
+): ConnectRequestOptions {
+  return { ...options, timeoutMs: options.timeoutMs ?? timeoutMs };
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw signal.reason;
 }
 
 function validSignal(data: unknown): boolean {

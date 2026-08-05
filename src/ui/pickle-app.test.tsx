@@ -1,4 +1,5 @@
 import { Capacitor } from "@capacitor/core";
+import type { ConnectRequestOptions } from "@mdbase-dev/connect";
 import {
   act,
   fireEvent,
@@ -55,6 +56,79 @@ describe("Pickle inbox", () => {
       screen.getByText("Ship it after the status page update."),
     ).toBeVisible();
     expect(screen.getByText("approve")).toBeVisible();
+  });
+
+  it("shows and resumes the exact pending response after reopening", async () => {
+    const repository = new FixturePickleRepository();
+    const pending = {
+      requestId: "pending-response-id",
+      operation: "create" as const,
+      fingerprint: "fingerprint",
+      status: "outcome_unknown" as const,
+      createdAt: "2026-08-04T00:00:00.000Z",
+      recover: vi.fn(),
+    };
+    vi.spyOn(repository, "pendingResponse").mockReturnValue(pending);
+    let finishRecovery: ((value: never) => void) | undefined;
+    const recovery = vi.spyOn(repository, "recoverResponse").mockReturnValue(
+      new Promise((resolve) => {
+        finishRecovery = resolve as (value: never) => void;
+      }),
+    );
+
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+
+    expect(
+      await screen.findByText("Response awaiting confirmation"),
+    ).toBeVisible();
+    expect(recovery).toHaveBeenCalledWith("pending-response-id", {
+      signal: expect.any(AbortSignal),
+      timeoutMs: 20_000,
+    });
+
+    await act(async () => {
+      finishRecovery?.({
+        kind: "recorded",
+        record: { path: "responses/one.md", frontmatter: {} },
+      } as never);
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByText("Response awaiting confirmation")).toBeNull(),
+    );
+    expect(screen.getByText("Response recorded")).toBeVisible();
+  });
+
+  it("cancels foreground collection work when the native app backgrounds", async () => {
+    const callbacks = new Map<string, (value: unknown) => void>();
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    vi.spyOn(pickleNotifications, "start").mockResolvedValue(undefined);
+    nativeApp.addListener.mockImplementation(
+      (eventName: string, callback: (value: unknown) => void) => {
+        callbacks.set(eventName, callback);
+        return Promise.resolve({ remove: vi.fn() });
+      },
+    );
+    const repository = new FixturePickleRepository();
+    let loadSignal: AbortSignal | undefined;
+    vi.spyOn(repository, "list").mockImplementation(
+      (options: ConnectRequestOptions = {}) =>
+        new Promise((_, reject) => {
+          loadSignal = options.signal;
+          options.signal?.addEventListener(
+            "abort",
+            () => reject(options.signal?.reason),
+            { once: true },
+          );
+        }),
+    );
+
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    await waitFor(() => expect(loadSignal).toBeDefined());
+
+    act(() => callbacks.get("appStateChange")?.({ isActive: false }));
+
+    expect(loadSignal?.aborted).toBe(true);
   });
 
   it("renders a collection-defined choice form and validates required fields", async () => {

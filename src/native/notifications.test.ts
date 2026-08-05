@@ -1,4 +1,5 @@
 import { Capacitor } from "@capacitor/core";
+import { connectSuccess } from "@mdbase-dev/connect-testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.hoisted(() => ({
@@ -37,16 +38,20 @@ describe("Pickle native notifications", () => {
         return Promise.resolve({ remove: vi.fn() });
       },
     );
-    const register = vi.fn().mockResolvedValue({
-      channelId: "channel-1",
-      installationId: "installation-1",
-      transport: "fcm",
-      criteria: ["pickle.request.created"],
-    });
+    const register = vi.fn().mockResolvedValue(
+      connectSuccess({
+        channelId: "channel-1",
+        installationId: "installation-1",
+        transport: "fcm",
+        criteria: ["pickle.request.created"],
+      }),
+    );
     const notifications = new PickleNotifications(() => ({
       collectionId: "pickle-a",
       registerNativeNotifications: register,
-      unregisterNativeNotifications: vi.fn(),
+      unregisterNativeNotifications: vi
+        .fn()
+        .mockResolvedValue(connectSuccess(undefined)),
     }));
 
     await notifications.start(vi.fn());
@@ -63,6 +68,7 @@ describe("Pickle native notifications", () => {
     expect(register).toHaveBeenCalledWith({
       token: "fcm-token",
       criteria: ["pickle.request.created"],
+      timeoutMs: 15_000,
     });
     expect(notifications.current()).toBe("enabled");
   });
@@ -78,13 +84,21 @@ describe("Pickle native notifications", () => {
     );
     const first = {
       collectionId: "pickle-a",
-      registerNativeNotifications: vi.fn().mockResolvedValue({}),
-      unregisterNativeNotifications: vi.fn().mockResolvedValue(undefined),
+      registerNativeNotifications: vi
+        .fn()
+        .mockResolvedValue(connectSuccess({} as never)),
+      unregisterNativeNotifications: vi
+        .fn()
+        .mockResolvedValue(connectSuccess(undefined)),
     };
     const second = {
       collectionId: "pickle-b",
-      registerNativeNotifications: vi.fn().mockResolvedValue({}),
-      unregisterNativeNotifications: vi.fn().mockResolvedValue(undefined),
+      registerNativeNotifications: vi
+        .fn()
+        .mockResolvedValue(connectSuccess({} as never)),
+      unregisterNativeNotifications: vi
+        .fn()
+        .mockResolvedValue(connectSuccess(undefined)),
     };
     const notifications = new PickleNotifications(() => first);
 
@@ -101,6 +115,7 @@ describe("Pickle native notifications", () => {
     expect(second.registerNativeNotifications).toHaveBeenCalledWith({
       token: "stable-fcm-token",
       criteria: ["pickle.request.created"],
+      timeoutMs: 15_000,
     });
     expect(localStorage.getItem("pickle.notifications.fcm_token")).toBe(
       "stable-fcm-token",

@@ -71,7 +71,7 @@ const manifest = {
         "records.read",
         "records.query",
         "records.create",
-        "definitions.type-pack.apply",
+        "collection.setup.apply",
       ],
       optional: ["notifications.background-delivery"],
     },
@@ -85,7 +85,10 @@ const manifest = {
       {
         id: PICKLE_NOTIFICATION_CRITERION,
         event: PICKLE_NOTIFICATION_EVENT,
-        if: { $expr: '"pickle_request" in event.payload.types' },
+        if: {
+          $expr:
+            'event.data.types != null && "pickle_request" in event.data.types',
+        },
         debounce: "2s",
         presentation: {
           title: "New Pickle request",

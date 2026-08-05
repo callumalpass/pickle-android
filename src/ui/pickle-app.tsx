@@ -2,7 +2,7 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
 import { Haptics, NotificationType } from "@capacitor/haptics";
-import type { JsonObject } from "@mdbase-dev/connect";
+import type { ConnectProblem, JsonObject } from "@mdbase-dev/connect";
 import type { PickleRequest } from "@mdbase-dev/pickle";
 import {
   AlertTriangle,
@@ -31,6 +31,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import markUrl from "../assets/pickle-mark.svg";
+import { connectProblemFromError } from "../cloud/outcome";
 import type { PickleRepository } from "../domain/repository";
 import {
   pickleNotifications,
@@ -85,7 +86,17 @@ export function PickleApp({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [pendingResponseId, setPendingResponseId] = useState<string | null>(
+    () => repository.pendingResponse()?.requestId ?? null,
+  );
+  const [pendingResponseIssue, setPendingResponseIssue] = useState<
+    string | null
+  >(null);
+  const [recoveringResponse, setRecoveringResponse] = useState(false);
   const loadSequence = useRef(0);
+  const loadRequest = useRef<AbortController | null>(null);
+  const responseRequest = useRef<AbortController | null>(null);
+  const foregroundRequest = useRef<AbortController | null>(null);
   const navigationState = useRef({ selectedId, view });
 
   useEffect(() => {
@@ -93,16 +104,23 @@ export function PickleApp({
   }, [selectedId, view]);
 
   const load = useCallback(
-    async (quiet = false) => {
+    async (quiet = false, parentSignal?: AbortSignal) => {
       const sequence = ++loadSequence.current;
+      loadRequest.current?.abort("A newer Pickle load started");
+      const controller = linkedController(parentSignal);
+      loadRequest.current = controller;
       if (!quiet) setRefreshing(true);
       try {
-        const current = await repository.list();
+        const current = await repository.list({
+          signal: controller.signal,
+          timeoutMs: 10_000,
+        });
         if (sequence !== loadSequence.current) return;
         setRequests(current);
         setError(null);
       } catch (reason) {
-        if (sequence === loadSequence.current) setError(message(reason));
+        if (sequence === loadSequence.current && !controller.signal.aborted)
+          setError(issueMessage(reason));
       } finally {
         if (sequence === loadSequence.current) {
           setLoading(false);
@@ -113,35 +131,106 @@ export function PickleApp({
     [repository],
   );
 
+  const recoverPendingResponse = useCallback(
+    async (parentSignal?: AbortSignal) => {
+      const pending = repository.pendingResponse();
+      if (!pending) {
+        setPendingResponseId(null);
+        setPendingResponseIssue(null);
+        return;
+      }
+      const controller = linkedController(parentSignal);
+      responseRequest.current?.abort("A response recovery superseded it");
+      responseRequest.current = controller;
+      setPendingResponseId(pending.requestId);
+      setRecoveringResponse(true);
+      try {
+        const submission = await repository.recoverResponse(pending.requestId, {
+          signal: controller.signal,
+          timeoutMs: 20_000,
+        });
+        if (submission.kind === "pending") {
+          setPendingResponseId(submission.requestId);
+          setPendingResponseIssue(
+            "The collection is not reachable yet. Pickle kept the original response and will resume it without sending another.",
+          );
+          return;
+        }
+        setPendingResponseId(null);
+        setPendingResponseIssue(null);
+        setToast("Response recorded");
+        await load(true, parentSignal);
+      } catch (reason) {
+        if (!controller.signal.aborted)
+          setPendingResponseIssue(issueMessage(reason));
+      } finally {
+        if (responseRequest.current === controller)
+          setRecoveringResponse(false);
+      }
+    },
+    [load, repository],
+  );
+
   useEffect(() => {
-    queueMicrotask(() => void load(true));
-    const unsubscribe = repository.subscribe(() => void load(true));
+    let unsubscribe: () => void = () => undefined;
+    const startForeground = () => {
+      foregroundRequest.current?.abort("Pickle foreground restarted");
+      unsubscribe();
+      const controller = new AbortController();
+      foregroundRequest.current = controller;
+      queueMicrotask(() => void load(true, controller.signal));
+      queueMicrotask(() => void recoverPendingResponse(controller.signal));
+      unsubscribe = repository.subscribe(
+        () => void load(true, controller.signal),
+        (problem) => {
+          if (!controller.signal.aborted) setError(problemMessage(problem));
+        },
+        { signal: controller.signal, timeoutMs: 10_000 },
+      );
+      void pickleNotifications
+        .start(
+          () => {
+            setView("inbox");
+            setSelectedId(null);
+            setQuery("");
+            setFilters((current) => ({
+              ...current,
+              inbox: { state: "all", priority: "all" },
+            }));
+            setToast("New request received");
+            void load(true, controller.signal);
+          },
+          { signal: controller.signal },
+        )
+        .catch((reason) => {
+          if (!controller.signal.aborted) setError(issueMessage(reason));
+        });
+    };
+    const stopForeground = () => {
+      foregroundRequest.current?.abort("Pickle moved to the background");
+      loadRequest.current?.abort("Pickle moved to the background");
+      responseRequest.current?.abort("Pickle moved to the background");
+      unsubscribe();
+      unsubscribe = () => undefined;
+    };
+    startForeground();
     const visibility = () => {
-      if (document.visibilityState === "visible") void load(true);
+      if (document.visibilityState === "visible") startForeground();
+      else stopForeground();
     };
     document.addEventListener("visibilitychange", visibility);
     const appState = Capacitor.isNativePlatform()
       ? CapacitorApp.addListener("appStateChange", ({ isActive }) => {
-          if (isActive) void load(true);
+          if (isActive) startForeground();
+          else stopForeground();
         })
       : null;
-    void pickleNotifications.start(() => {
-      setView("inbox");
-      setSelectedId(null);
-      setQuery("");
-      setFilters((current) => ({
-        ...current,
-        inbox: { state: "all", priority: "all" },
-      }));
-      setToast("New request received");
-      void load(true);
-    });
     return () => {
-      unsubscribe();
+      stopForeground();
       document.removeEventListener("visibilitychange", visibility);
       void appState?.then((handle) => handle.remove());
     };
-  }, [load, repository]);
+  }, [load, recoverPendingResponse, repository]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -287,6 +376,27 @@ export function PickleApp({
       <Navigation inboxCount={inboxCount} view={view} onNavigate={navigate} />
 
       <main className="workspace">
+        {pendingResponseId ? (
+          <div className="response-recovery" role="status">
+            <AlertTriangle aria-hidden="true" size={18} />
+            <div>
+              <strong>Response awaiting confirmation</strong>
+              <p>
+                {pendingResponseIssue ??
+                  "Pickle saved this exact response and is checking whether the collection recorded it."}
+              </p>
+            </div>
+            <button
+              disabled={recoveringResponse}
+              type="button"
+              onClick={() =>
+                void recoverPendingResponse(foregroundRequest.current?.signal)
+              }
+            >
+              {recoveringResponse ? "Checking…" : "Resume response"}
+            </button>
+          </div>
+        ) : null}
         {view === "settings" ? (
           <SettingsView
             repository={repository}
@@ -493,7 +603,24 @@ export function PickleApp({
                   request={selected}
                   onBack={() => setSelectedId(null)}
                   onRespond={async (payload) => {
-                    await repository.respond(selected, payload);
+                    responseRequest.current?.abort(
+                      "A newer Pickle response started",
+                    );
+                    const controller = linkedController(
+                      foregroundRequest.current?.signal,
+                    );
+                    responseRequest.current = controller;
+                    const submission = await repository.respond(
+                      selected,
+                      payload,
+                      { signal: controller.signal, timeoutMs: 20_000 },
+                    );
+                    if (submission.kind === "pending") {
+                      setPendingResponseId(submission.requestId);
+                      setPendingResponseIssue(null);
+                      setToast("Response saved for confirmation");
+                      return;
+                    }
                     if (Capacitor.isNativePlatform()) {
                       await Haptics.notification({
                         type: NotificationType.Success,
@@ -655,7 +782,7 @@ function RequestDetail({
     try {
       await onRespond(payload);
     } catch (reason) {
-      setError(message(reason));
+      setError(issueMessage(reason));
     } finally {
       setBusy(false);
     }
@@ -857,7 +984,7 @@ function SettingsView({
       if (notificationState === "enabled") await pickleNotifications.disable();
       else await pickleNotifications.enable();
     } catch (reason) {
-      setNotificationError(message(reason));
+      setNotificationError(issueMessage(reason));
     }
   }
 
@@ -1180,6 +1307,45 @@ async function openLink(url: string): Promise<void> {
   else window.open(url, "_blank", "noopener,noreferrer");
 }
 
-function message(reason: unknown): string {
+function issueMessage(reason: unknown): string {
+  const problem = connectProblemFromError(reason);
+  if (problem) return problemMessage(problem);
   return reason instanceof Error ? reason.message : String(reason);
+}
+
+function problemMessage(problem: ConnectProblem): string {
+  if (problem.code === "timeout")
+    return "The collection did not respond in time. Pickle will try again while the app is active.";
+  if (
+    problem.code === "connector_offline" ||
+    problem.code === "relay_unavailable" ||
+    problem.code === "hosted_provider_unavailable" ||
+    problem.code === "temporarily_unavailable"
+  )
+    return "This collection is offline. Your collection remains the source of truth; try again when it is reachable.";
+  if (
+    problem.code === "connector_upgrade_required" ||
+    problem.code === "transport_protocol_incompatible" ||
+    problem.code === "capability_contract_incompatible"
+  )
+    return "This collection needs a compatible mdbase Connect update before Pickle can continue.";
+  if (problem.code === "access_paused")
+    return "Access to this collection is paused. Resume Pickle in mdbase Connect to continue.";
+  if (problem.code === "operation_cancelled")
+    return "This action paused when Pickle moved to the background.";
+  if (problem.code === "invalid_operation_response")
+    return "mdbase returned an invalid response. Update Pickle and mdbase Connect before trying again.";
+  return problem.message;
+}
+
+function linkedController(parentSignal?: AbortSignal): AbortController {
+  const controller = new AbortController();
+  if (parentSignal?.aborted) controller.abort(parentSignal.reason);
+  else
+    parentSignal?.addEventListener(
+      "abort",
+      () => controller.abort(parentSignal.reason),
+      { once: true },
+    );
+  return controller;
 }

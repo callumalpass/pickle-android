@@ -1,3 +1,5 @@
+import type { MdbaseAppManifest } from "@mdbase-dev/connect";
+import { connectSuccess } from "@mdbase-dev/connect-testing";
 import {
   afterAll,
   afterEach,
@@ -9,6 +11,7 @@ import {
 } from "vitest";
 
 import bundledManifest from "../generated/mdbase-app.json";
+import { requireConnectOutcome } from "./outcome";
 import {
   isNativeMdbaseCallback,
   pickleConnect,
@@ -17,7 +20,22 @@ import {
 
 describe("Pickle mdbase connection", () => {
   beforeAll(async () => {
-    await pickleSession.start();
+    vi.spyOn(pickleConnect, "register").mockResolvedValue(
+      connectSuccess({
+        id: "pickle-test-application",
+        family_identity: "bundle:com.callumalpass.pickle",
+        manifest_digest: "0".repeat(64),
+        name: "Pickle",
+        homepage: "https://pickle.mdbase.dev/",
+        requirements: bundledManifest.requirements as NonNullable<
+          MdbaseAppManifest["requirements"]
+        >,
+      }),
+    );
+    vi.spyOn(pickleConnect, "manifest").mockResolvedValue(
+      connectSuccess(bundledManifest as MdbaseAppManifest),
+    );
+    requireConnectOutcome(await pickleSession.start());
   });
 
   afterAll(() => pickleSession.destroy());
@@ -96,5 +114,11 @@ describe("Pickle mdbase connection", () => {
         );
       }
     }
+  });
+
+  it("filters record events through the canonical CloudEvent data field", () => {
+    expect(bundledManifest.notifications.criteria[0]?.if).toEqual({
+      $expr: 'event.data.types != null && "pickle_request" in event.data.types',
+    });
   });
 });
