@@ -272,15 +272,15 @@ export function App({ repository: initialRepository }: AppProps = {}) {
       ) : null}
       {snapshot.status === "setup_review_required" ? (
         <section
-          className="connection-error"
+          className="connection-setup"
           aria-labelledby="pickle-definition-update"
         >
           <strong id="pickle-definition-update">
             Pickle definitions changed
           </strong>
           <p>
-            Review the source-of-truth changes before updating this collection.
-            Existing requests are not changed by this step.
+            This collection needs the definitions listed below before Pickle can
+            open it. Existing requests are not changed by this step.
           </p>
           <ul>
             {snapshot.update.typePacks.map((update) => (
@@ -307,43 +307,53 @@ export function App({ repository: initialRepository }: AppProps = {}) {
                 .finally(() => setOpening(false));
             }}
           >
-            Review and update definitions
+            Update this collection
           </button>
         </section>
       ) : null}
       <div className="connection-actions">
-        {snapshot.connections.map((connection) => (
+        {snapshot.connections
+          .filter(
+            (connection) =>
+              snapshot.status !== "setup_review_required" ||
+              connection.collectionId !== snapshot.collectionId,
+          )
+          .map((connection) => (
+            <button
+              key={connection.collectionId}
+              className="outline-action"
+              type="button"
+              onClick={() => {
+                setError(null);
+                pickleSession.select(connection.collectionId, {
+                  history: "replace",
+                });
+              }}
+            >
+              {snapshot.status === "setup_review_required" ? "Use " : "Open "}
+              {connection.displayName}
+            </button>
+          ))}
+        {snapshot.status !== "setup_review_required" ? (
           <button
-            key={connection.collectionId}
             className="outline-action"
+            disabled={opening}
             type="button"
-            onClick={() => {
-              setError(null);
-              pickleSession.select(connection.collectionId, {
-                history: "replace",
-              });
-            }}
+            onClick={connect}
           >
-            Open {connection.displayName}
+            {opening
+              ? "Opening mdbase…"
+              : snapshot.status === "authorization_required"
+                ? "Review updated access"
+                : snapshot.connections.length
+                  ? "Connect another collection"
+                  : "Continue to mdbase"}
           </button>
-        ))}
-        <button
-          className="outline-action"
-          disabled={opening}
-          type="button"
-          onClick={connect}
-        >
-          {opening
-            ? "Opening mdbase…"
-            : snapshot.status === "authorization_required"
-              ? "Review updated access"
-              : snapshot.connections.length
-                ? "Connect another collection"
-                : "Continue to mdbase"}
-        </button>
+        ) : null}
         <small>
-          Pickle never asks for a server address, collection path, or network
-          token.
+          {snapshot.status === "setup_review_required"
+            ? "Update this collection or choose one of your other connected collections."
+            : "Pickle never asks for a server address, collection path, or network token."}
         </small>
       </div>
     </main>

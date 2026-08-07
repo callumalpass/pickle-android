@@ -221,6 +221,28 @@ button:disabled {
   line-height: 1.45;
 }
 
+.connection-setup {
+  padding: 16px 0;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--accent);
+  border-bottom: 1px solid var(--line);
+}
+
+.connection-setup strong {
+  color: var(--ink);
+}
+
+.connection-setup p {
+  margin: 4px 0 0;
+  line-height: 1.45;
+}
+
+.connection-setup ul {
+  margin: 12px 0 16px;
+  padding-left: 20px;
+  line-height: 1.5;
+}
+
 .app-frame {
   width: 100%;
   max-width: 100vw;
