@@ -93,7 +93,10 @@ const samples: PickleRequest[] = [
       { label: "Release notes", url: "https://example.com/releases/0.3.0" },
     ],
     attachments: [
-      { path: "artifacts/release-report.pdf", filename: "release-report.pdf" },
+      {
+        path: "attachments/req-deploy/1-release-report.pdf",
+        filename: "release-report.pdf",
+      },
     ],
     responseType: approvalType.name,
     responseTypeDefinition: approvalType,
@@ -156,6 +159,12 @@ export class FixturePickleRepository implements PickleRepository {
 
   async list(): Promise<PickleRequest[]> {
     return structuredClone(this.requests);
+  }
+
+  async readAttachment(): Promise<Blob> {
+    return new Blob(["%PDF-1.7\n% Pickle fixture\n"], {
+      type: "application/pdf",
+    });
   }
 
   async respond(

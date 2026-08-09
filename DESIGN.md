@@ -77,7 +77,8 @@ in a stable inspector beside the inbox.
 - Inputs use the current surface and a complete one-pixel border.
 - Loading uses skeleton rows.
 - Empty states name the next useful action.
-- Attachment rows show path and file type until binary reads are available.
+- Attachment rows show the filename and durable path and open the file through
+  mdbase Connect. Loading and read failures remain attached to the selected row.
 
 ## Motion
 

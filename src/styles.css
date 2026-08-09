@@ -924,7 +924,8 @@ button:disabled {
 }
 
 .resource-list > button,
-.resource-list > div {
+.resource-list > div:not(.attachment-entry),
+.attachment-entry > button {
   display: grid;
   width: 100%;
   min-height: 48px;
@@ -939,9 +940,30 @@ button:disabled {
   border-top: 1px solid var(--line);
 }
 
-.resource-list > button {
+.resource-list > button,
+.attachment-entry > button {
   color: var(--accent);
   cursor: pointer;
+}
+
+.attachment-entry {
+  border-top: 1px solid var(--line);
+}
+
+.attachment-entry > button {
+  border-top: 0;
+}
+
+.attachment-entry > button:disabled {
+  color: var(--ink-muted);
+  cursor: wait;
+}
+
+.attachment-entry > .attachment-error {
+  display: block;
+  padding: 0 0 10px 27px;
+  color: var(--danger);
+  line-height: 1.4;
 }
 
 .resource-list code {

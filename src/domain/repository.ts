@@ -6,6 +6,7 @@ import type {
 } from "@mdbase-dev/connect";
 import {
   PickleCollection,
+  type PickleAttachment,
   type PickleFrontmatter,
   type PicklePendingResponse,
   type PickleRequest,
@@ -20,6 +21,10 @@ export interface PickleRepository {
   readonly collectionId: string;
   readonly authority: "hosted" | "connector" | "fixture";
   list(options?: ConnectRequestOptions): Promise<PickleRequest[]>;
+  readAttachment(
+    attachment: PickleAttachment,
+    options?: ConnectRequestOptions,
+  ): Promise<Blob>;
   respond(
     request: PickleRequest,
     payload: JsonObject,
@@ -52,6 +57,25 @@ export class ConnectedPickleRepository implements PickleRepository {
 
   list(options: ConnectRequestOptions = {}): Promise<PickleRequest[]> {
     return this.collection.list(withTimeout(options, READ_TIMEOUT_MS));
+  }
+
+  async readAttachment(
+    attachment: PickleAttachment,
+    options: ConnectRequestOptions = {},
+  ): Promise<Blob> {
+    const separator = attachment.path.lastIndexOf("/");
+    const folder =
+      separator < 0 ? undefined : attachment.path.slice(0, separator);
+    const requestOptions = withTimeout(options, READ_TIMEOUT_MS);
+    for await (const file of this.connection.files.list({
+      ...requestOptions,
+      folder,
+    })) {
+      if (file.path === attachment.path) {
+        return this.connection.files.download(file, requestOptions);
+      }
+    }
+    throw new Error(`Attachment not found: ${attachment.path}`);
   }
 
   respond(

@@ -72,10 +72,16 @@ const manifest = {
         "records.query",
         "records.create",
         "collection.setup.apply",
+        "files.list",
+        "files.read",
       ],
       optional: ["notifications.background-delivery"],
     },
     access: "full_collection",
+    files: {
+      actions: ["list", "read"],
+      scope: { kind: "selected_folders", folders: ["attachments"] },
+    },
   },
   provisions: {
     type_packs: [pickleTypePack],

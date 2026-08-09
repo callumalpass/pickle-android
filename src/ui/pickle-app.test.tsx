@@ -58,6 +58,49 @@ describe("Pickle inbox", () => {
     expect(screen.getByText("approve")).toBeVisible();
   });
 
+  it("reads and opens an attachment through the repository", async () => {
+    const repository = new FixturePickleRepository();
+    const content = new Blob(["review"], { type: "text/plain" });
+    const readAttachment = vi
+      .spyOn(repository, "readAttachment")
+      .mockResolvedValue(content);
+    const viewer = {
+      opener: window,
+      location: { href: "about:blank" },
+      close: vi.fn(),
+    };
+    vi.spyOn(window, "open").mockReturnValue(viewer as unknown as Window);
+    const createObjectURL = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue("blob:pickle-attachment");
+
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open release-report.pdf" }),
+    );
+
+    await waitFor(() =>
+      expect(viewer.location.href).toBe("blob:pickle-attachment"),
+    );
+    expect(readAttachment).toHaveBeenCalledWith(
+      {
+        path: "attachments/req-deploy/1-release-report.pdf",
+        filename: "release-report.pdf",
+      },
+      {
+        signal: expect.any(AbortSignal),
+        timeoutMs: 120_000,
+      },
+    );
+    expect(createObjectURL).toHaveBeenCalledWith(content);
+    expect(viewer.close).not.toHaveBeenCalled();
+  });
+
   it("shows and resumes the exact pending response after reopening", async () => {
     const repository = new FixturePickleRepository();
     const pending = {

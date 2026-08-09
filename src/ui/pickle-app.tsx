@@ -3,7 +3,7 @@ import { Browser } from "@capacitor/browser";
 import { Capacitor } from "@capacitor/core";
 import { Haptics, NotificationType } from "@capacitor/haptics";
 import type { ConnectProblem, JsonObject } from "@mdbase-dev/connect";
-import type { PickleRequest } from "@mdbase-dev/pickle";
+import type { PickleAttachment, PickleRequest } from "@mdbase-dev/pickle";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -602,6 +602,15 @@ export function PickleApp({
                 <RequestDetail
                   request={selected}
                   onBack={() => setSelectedId(null)}
+                  onReadAttachment={(attachment, signal) =>
+                    repository.readAttachment(attachment, {
+                      signal: linkedSignal(
+                        signal,
+                        foregroundRequest.current?.signal,
+                      ),
+                      timeoutMs: 120_000,
+                    })
+                  }
                   onRespond={async (payload) => {
                     responseRequest.current?.abort(
                       "A newer Pickle response started",
@@ -767,10 +776,15 @@ function StateMark({ state }: { state: PickleRequest["state"] }) {
 function RequestDetail({
   request,
   onBack,
+  onReadAttachment,
   onRespond,
 }: {
   request: PickleRequest;
   onBack: () => void;
+  onReadAttachment: (
+    attachment: PickleAttachment,
+    signal?: AbortSignal,
+  ) => Promise<Blob>;
   onRespond: (payload: JsonObject) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -876,16 +890,12 @@ function RequestDetail({
           <section className="resource-list attachments">
             <p className="eyebrow">Attachments</p>
             {request.attachments.map((attachment) => (
-              <div key={attachment.path}>
-                <Paperclip size={16} />
-                <span>{attachment.filename}</span>
-                <code>{attachment.path}</code>
-              </div>
+              <AttachmentRow
+                key={attachment.path}
+                attachment={attachment}
+                onRead={onReadAttachment}
+              />
             ))}
-            <small>
-              Attachment previews will appear when mdbase binary reads are
-              available.
-            </small>
           </section>
         ) : null}
 
@@ -923,6 +933,83 @@ function RequestDetail({
         ) : null}
       </div>
     </article>
+  );
+}
+
+function AttachmentRow({
+  attachment,
+  onRead,
+}: {
+  attachment: PickleAttachment;
+  onRead: (attachment: PickleAttachment, signal?: AbortSignal) => Promise<Blob>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const readRequest = useRef<AbortController | null>(null);
+
+  useEffect(
+    () => () => readRequest.current?.abort("Attachment view closed"),
+    [],
+  );
+
+  function open() {
+    if (busy) return;
+    const target = window.open("about:blank", "_blank");
+    if (!target) {
+      setError(
+        "The attachment viewer was blocked. Allow pop-ups and try again.",
+      );
+      return;
+    }
+    try {
+      target.opener = null;
+    } catch {
+      // Some WebViews expose a read-only opener.
+    }
+    readRequest.current?.abort("A newer attachment read started");
+    const controller = new AbortController();
+    readRequest.current = controller;
+    setBusy(true);
+    setError(null);
+    void onRead(attachment, controller.signal)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        target.location.href = url;
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      })
+      .catch((reason) => {
+        target.close();
+        if (!controller.signal.aborted) setError(issueMessage(reason));
+      })
+      .finally(() => {
+        if (readRequest.current === controller) {
+          readRequest.current = null;
+          setBusy(false);
+        }
+      });
+  }
+
+  return (
+    <div className="attachment-entry">
+      <button
+        aria-busy={busy}
+        aria-label={`Open ${attachment.filename}`}
+        disabled={busy}
+        type="button"
+        onClick={open}
+      >
+        <Paperclip aria-hidden="true" size={16} />
+        <span>
+          {busy ? `Opening ${attachment.filename}…` : attachment.filename}
+        </span>
+        <code>{attachment.path}</code>
+      </button>
+      {error ? (
+        <small className="attachment-error" role="alert">
+          {error}
+        </small>
+      ) : null}
+    </div>
   );
 }
 
@@ -1348,4 +1435,14 @@ function linkedController(parentSignal?: AbortSignal): AbortController {
       { once: true },
     );
   return controller;
+}
+
+function linkedSignal(
+  ...values: Array<AbortSignal | undefined>
+): AbortSignal | undefined {
+  const signals = values.filter(
+    (signal): signal is AbortSignal => signal !== undefined,
+  );
+  if (!signals.length) return undefined;
+  return signals.length === 1 ? signals[0] : AbortSignal.any(signals);
 }
