@@ -8,6 +8,7 @@
     "manifest": "node scripts/write-manifest.mjs",
     "manifest:dev": "node scripts/write-manifest.mjs --development",
     "dev": "pnpm manifest:dev && vite",
+    "deploy:dev": "node scripts/deploy-pages-dev.mjs",
     "build": "pnpm manifest && pnpm manifest:validate && tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
