@@ -20,6 +20,22 @@ pnpm cap:sync
 Use `VITE_MDBASE_CONNECT_URL` and `PICKLE_APP_URL` to point development builds
 at a local mdbase connect control plane and manifest origin.
 
+Publish the current working tree to the permanent Cloudflare Pages development
+surface with:
+
+```bash
+pnpm dlx wrangler@4.114.0 login # first use only
+pnpm deploy:dev
+```
+
+This builds a web-only manifest for
+<https://staging.pickle-9zb.pages.dev>, connects it to the hosted staging
+Connect service and the isolated connector on `127.0.0.1:28486`, deploys only
+the Cloudflare `staging` branch, and verifies the live application. It does not
+change the GitHub Pages deployment or Cloudflare's production branch. Start the
+matching local connector from the sibling `mdbase-connect` checkout with
+`pnpm dev:desktop:staging`.
+
 The checked-in mdbase packages are deterministic snapshots from the sibling
 `mdbase-connect` workspace. Refresh them after compatible protocol changes.
 
