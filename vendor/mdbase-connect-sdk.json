@@ -24,8 +24,8 @@
     {
       "package": "pickle",
       "file": "mdbase-dev-pickle-0.1.0-beta.63-b1ba9e676c40.tgz",
-      "bytes": 8041,
-      "sha512": "7PkrmW98OUYE674Hk7AOVFS4T5YWQxPenRo2lNwZCqrXn3SwnbD2qcRj2SH5VfuXTLGoMcRB70pvKatOnGgMGw=="
+      "bytes": 8039,
+      "sha512": "+ByEirC4/58NE6MNfbwsF6sZwauXKYSAJllxbGUHZ15/Eh9jY1MmOph8lX1aIeT2p5y1z3q5uhjl79RSauiizg=="
     },
     {
       "package": "testing",
