@@ -45,7 +45,7 @@ async function main() {
     );
     await devtools.clickButton("Approve production deployment");
     await waitFor(
-      () => devtools.hasText("Attachment previews will appear"),
+      () => devtools.hasText("release-report.pdf"),
       "the native request detail",
     );
     await devtools.fillLabel("Comment", "Approved by the Android smoke test.");
