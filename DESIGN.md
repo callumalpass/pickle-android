@@ -77,7 +77,9 @@ in a stable inspector beside the inbox.
 - Inputs use the current surface and a complete one-pixel border.
 - Loading uses skeleton rows.
 - Empty states name the next useful action.
-- Attachment rows show path and file type until binary reads are available.
+- Attachment rows identify the file type and expand in place. Images and PDFs
+  render as bounded document previews; Markdown uses the same typesetting as
+  request context so a decision can be made without leaving the inspector.
 
 ## Motion
 

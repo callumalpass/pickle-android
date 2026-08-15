@@ -58,6 +58,44 @@ describe("Pickle inbox", () => {
     expect(screen.getByText("approve")).toBeVisible();
   });
 
+  it("loads image and Markdown attachments into inline previews", async () => {
+    const createObjectUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue("blob:fixture-image");
+    const revokeObjectUrl = vi
+      .spyOn(URL, "revokeObjectURL")
+      .mockImplementation(() => undefined);
+    render(
+      <PickleApp
+        repository={new FixturePickleRepository()}
+        onDisconnect={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /deployment-map\.svg/ }),
+    );
+    expect(
+      await screen.findByRole("img", { name: "deployment-map.svg" }),
+    ).toHaveAttribute("src", "blob:fixture-image");
+
+    fireEvent.click(screen.getByRole("button", { name: /release-notes\.md/ }));
+    expect(
+      await screen.findByRole("heading", { name: "Release notes" }),
+    ).toBeVisible();
+    expect(screen.getByRole("table")).toBeVisible();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+    expect(createObjectUrl).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to requests" }));
+    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:fixture-image");
+  });
+
   it("shows and resumes the exact pending response after reopening", async () => {
     const repository = new FixturePickleRepository();
     const pending = {

@@ -1,5 +1,6 @@
 import type { ConnectRequestOptions, JsonObject } from "@mdbase-dev/connect";
 import type {
+  PickleAttachment,
   PicklePendingResponse,
   PickleRequest,
   PickleResponse,
@@ -7,7 +8,10 @@ import type {
 } from "@mdbase-dev/pickle";
 import type { CollectionTypeDescriptor } from "@mdbase-dev/connect-protocol";
 
-import type { PickleRepository } from "../domain/repository";
+import type {
+  PickleAttachmentContent,
+  PickleRepository,
+} from "../domain/repository";
 
 const approvalType: CollectionTypeDescriptor = {
   name: "pickle_response_approval",
@@ -93,7 +97,18 @@ const samples: PickleRequest[] = [
       { label: "Release notes", url: "https://example.com/releases/0.3.0" },
     ],
     attachments: [
-      { path: "artifacts/release-report.pdf", filename: "release-report.pdf" },
+      {
+        path: "attachments/req-deploy/1-release-report.pdf",
+        filename: "release-report.pdf",
+      },
+      {
+        path: "attachments/req-deploy/2-deployment-map.svg",
+        filename: "deployment-map.svg",
+      },
+      {
+        path: "attachments/req-deploy/3-release-notes.md",
+        filename: "release-notes.md",
+      },
     ],
     responseType: approvalType.name,
     responseTypeDefinition: approvalType,
@@ -156,6 +171,31 @@ export class FixturePickleRepository implements PickleRepository {
 
   async list(): Promise<PickleRequest[]> {
     return structuredClone(this.requests);
+  }
+
+  async readAttachment(
+    attachment: PickleAttachment,
+  ): Promise<PickleAttachmentContent | null> {
+    const fixture = attachmentFixtures[attachment.path];
+    if (!fixture) return null;
+    const blob = fixture();
+    return {
+      blob,
+      file: {
+        fileId: `fixture-${attachment.filename}`,
+        path: attachment.path,
+        revision: "fixture-1",
+        contentDigest: `sha256:${"0".repeat(64)}`,
+        size: blob.size,
+        mediaType: blob.type,
+        mediaClass: blob.type.startsWith("image/")
+          ? "image"
+          : blob.type === "application/pdf"
+            ? "pdf"
+            : "other",
+        modifiedAt: "2026-07-24T07:42:00Z",
+      },
+    };
   }
 
   async respond(
@@ -254,4 +294,72 @@ function response(decision: string, comment: string): PickleResponse {
     payload,
     frontmatter: payload,
   };
+}
+
+const attachmentFixtures: Record<string, () => Blob> = {
+  "attachments/req-deploy/1-release-report.pdf": () => demoPdf(),
+  "attachments/req-deploy/2-deployment-map.svg": () =>
+    new Blob(
+      [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+          <rect width="960" height="540" fill="#f3f6f8"/>
+          <path d="M120 270h180l70-110h220l70 110h180" fill="none" stroke="#356f96" stroke-width="10"/>
+          <g fill="#fff" stroke="#20242c" stroke-width="4">
+            <rect x="70" y="220" width="180" height="100" rx="12"/>
+            <rect x="390" y="110" width="180" height="100" rx="12"/>
+            <rect x="710" y="220" width="180" height="100" rx="12"/>
+          </g>
+          <g fill="#20242c" font-family="system-ui,sans-serif" font-size="26" text-anchor="middle">
+            <text x="160" y="280">Build</text><text x="480" y="170">Verify</text><text x="800" y="280">Deploy</text>
+          </g>
+        </svg>`,
+      ],
+      { type: "image/svg+xml" },
+    ),
+  "attachments/req-deploy/3-release-notes.md": () =>
+    new Blob(
+      [
+        `# Release notes
+
+The candidate is ready for **production review**.
+
+- [x] Contract tests passed
+- [x] Rollback image retained
+- [ ] Deployment approved
+
+| Check | Result |
+| --- | --- |
+| Unit suite | 143 passed |
+| Schema changes | None |
+
+> Roll back if the health check fails twice.
+
+Run \`deploy --channel stable\` after approval.`,
+      ],
+      { type: "text/markdown" },
+    ),
+};
+
+function demoPdf(): Blob {
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+    "<< /Length 98 >>\nstream\nBT /F1 22 Tf 72 710 Td (Release report) Tj 0 -34 Td /F1 12 Tf (143 checks passed. No schema migrations.) Tj ET\nendstream",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let document = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(new TextEncoder().encode(document).byteLength);
+    document += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = new TextEncoder().encode(document).byteLength;
+  document += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  document += offsets
+    .slice(1)
+    .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
+    .join("");
+  document += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return new Blob([document], { type: "application/pdf" });
 }

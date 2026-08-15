@@ -36,8 +36,11 @@
     "@mdbase-dev/connect-protocol": "file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.69-90334b9c4f6d.tgz",
     "@mdbase-dev/pickle": "file:vendor/mdbase-dev-pickle-0.1.0-beta.69-90334b9c4f6d.tgz",
     "lucide-react": "1.25.0",
+    "pdfjs-dist": "5.4.149",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1"
   },
   "devDependencies": {
     "@capacitor/android": "8.4.2",
