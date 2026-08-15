@@ -20,7 +20,6 @@ import {
   LogOut,
   Monitor,
   Moon,
-  Paperclip,
   RefreshCw,
   Search,
   Settings,
@@ -38,6 +37,8 @@ import {
   type NotificationState,
 } from "../native/notifications";
 import { ResponseForm } from "./response-form";
+import { Attachments } from "./attachments";
+import { Markdown } from "./markdown";
 import { applyTheme, currentTheme, type Theme } from "./theme";
 
 type View = "inbox" | "history" | "settings";
@@ -601,6 +602,7 @@ export function PickleApp({
               {selected ? (
                 <RequestDetail
                   request={selected}
+                  repository={repository}
                   onBack={() => setSelectedId(null)}
                   onRespond={async (payload) => {
                     responseRequest.current?.abort(
@@ -766,10 +768,12 @@ function StateMark({ state }: { state: PickleRequest["state"] }) {
 
 function RequestDetail({
   request,
+  repository,
   onBack,
   onRespond,
 }: {
   request: PickleRequest;
+  repository: PickleRepository;
   onBack: () => void;
   onRespond: (payload: JsonObject) => Promise<void>;
 }) {
@@ -809,7 +813,9 @@ function RequestDetail({
         <div className="detail-title">
           <p className="eyebrow">{request.source}</p>
           <h2>{request.title}</h2>
-          <p className="detail-message">{request.message}</p>
+          {request.message ? (
+            <Markdown className="detail-message" source={request.message} />
+          ) : null}
         </div>
 
         <dl className="detail-facts">
@@ -836,7 +842,7 @@ function RequestDetail({
         {request.body ? (
           <section className="request-body" aria-label="Context">
             <p className="eyebrow">Context</p>
-            <PlainMarkdown value={request.body} />
+            <Markdown source={request.body} />
           </section>
         ) : null}
 
@@ -872,22 +878,10 @@ function RequestDetail({
           </section>
         ) : null}
 
-        {request.attachments.length ? (
-          <section className="resource-list attachments">
-            <p className="eyebrow">Attachments</p>
-            {request.attachments.map((attachment) => (
-              <div key={attachment.path}>
-                <Paperclip size={16} />
-                <span>{attachment.filename}</span>
-                <code>{attachment.path}</code>
-              </div>
-            ))}
-            <small>
-              Attachment previews will appear when mdbase binary reads are
-              available.
-            </small>
-          </section>
-        ) : null}
+        <Attachments
+          attachments={request.attachments}
+          repository={repository}
+        />
 
         {request.state === "pending" ? (
           request.responseTypeDefinition ? (
@@ -1147,24 +1141,6 @@ function EmptyState({
               ? "New agent requests will appear here."
               : "Answered and cancelled requests will appear here."}
       </p>
-    </div>
-  );
-}
-
-function PlainMarkdown({ value }: { value: string }) {
-  return (
-    <div className="plain-markdown">
-      {value.split(/\n{2,}/).map((block, index) =>
-        block.split("\n").every((line) => /^\s*[-*]\s+/.test(line)) ? (
-          <ul key={index}>
-            {block.split("\n").map((line) => (
-              <li key={line}>{line.replace(/^\s*[-*]\s+/, "")}</li>
-            ))}
-          </ul>
-        ) : (
-          <p key={index}>{block.replace(/^#{1,6}\s+/, "")}</p>
-        ),
-      )}
     </div>
   );
 }

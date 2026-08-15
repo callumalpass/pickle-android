@@ -24,9 +24,15 @@
         "records.read",
         "records.query",
         "records.create",
+        "files.list",
+        "files.read",
         "collection.setup.apply"
       ],
       "optional": ["notifications.background-delivery"]
+    },
+    "files": {
+      "actions": ["list", "read"],
+      "scope": { "kind": "selected_folders", "folders": ["attachments"] }
     },
     "access": "full_collection"
   },

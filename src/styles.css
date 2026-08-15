@@ -880,6 +880,7 @@ button:disabled {
 
 .request-body,
 .resource-list,
+.attachments,
 .response-form,
 .response-receipt {
   margin-top: 30px;
@@ -887,23 +888,170 @@ button:disabled {
 
 .request-body .eyebrow,
 .resource-list > .eyebrow,
+.attachments > .eyebrow,
 .response-receipt > .eyebrow {
   margin-bottom: 10px;
 }
 
-.plain-markdown {
+.markdown {
+  min-width: 0;
   color: var(--ink-soft);
   font-size: 1.02rem;
   line-height: 1.56;
+  overflow-wrap: anywhere;
 }
 
-.plain-markdown p,
-.plain-markdown ul {
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown pre,
+.markdown blockquote,
+.markdown table {
   margin: 0 0 12px;
 }
 
-.plain-markdown ul {
-  padding-left: 22px;
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: 1.35em 0 0.48em;
+  color: var(--ink);
+  letter-spacing: -0.018em;
+  line-height: 1.2;
+}
+
+.markdown h1 {
+  font-size: 1.55rem;
+}
+
+.markdown h2 {
+  padding-bottom: 0.25em;
+  font-size: 1.3rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.markdown h3 {
+  font-size: 1.12rem;
+}
+
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-size: 1rem;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.45em;
+}
+
+.markdown li + li {
+  margin-top: 0.24em;
+}
+
+.markdown li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+
+.markdown input[type="checkbox"] {
+  width: 1em;
+  height: 1em;
+  margin: 0 0.42em 0 -1.35em;
+  accent-color: var(--accent);
+}
+
+.markdown a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
+}
+
+.markdown strong {
+  color: var(--ink);
+}
+
+.markdown code {
+  padding: 0.12em 0.32em;
+  color: var(--ink);
+  font-family: "Azeret Mono", ui-monospace, monospace;
+  font-size: 0.82em;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.markdown pre {
+  max-width: 100%;
+  padding: 13px 14px;
+  overflow-x: auto;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.markdown pre code {
+  padding: 0;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+}
+
+.markdown blockquote {
+  padding: 2px 0 2px 14px;
+  color: var(--ink-muted);
+  border-left: 3px solid var(--accent);
+}
+
+.markdown blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+.markdown th,
+.markdown td {
+  min-width: 110px;
+  padding: 7px 10px;
+  text-align: left;
+  border: 1px solid var(--line-strong);
+}
+
+.markdown th {
+  color: var(--ink);
+  background: var(--paper-soft);
+}
+
+.markdown hr {
+  margin: 22px 0;
+  border: 0;
+  border-top: 1px solid var(--line-strong);
+}
+
+.markdown img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.detail-message.markdown p {
+  margin: 0 0 0.65em;
 }
 
 .tag-list {
@@ -959,6 +1107,193 @@ button:disabled {
   margin-top: 8px;
   color: var(--ink-muted);
   line-height: 1.4;
+}
+
+.attachment-list {
+  border-bottom: 1px solid var(--line);
+}
+
+.attachment {
+  border-top: 1px solid var(--line);
+}
+
+.attachment-summary {
+  display: grid;
+  width: 100%;
+  min-height: 58px;
+  padding: 8px 0;
+  align-items: center;
+  grid-template-columns: 32px minmax(0, 1fr) 24px;
+  gap: 9px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.attachment-type-mark {
+  display: grid;
+  width: 30px;
+  height: 36px;
+  place-items: center;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in oklab, var(--accent), var(--line) 70%);
+  border-radius: 4px;
+}
+
+.attachment-name {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.attachment-name strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-name span {
+  color: var(--ink-muted);
+  font-family: "Azeret Mono", ui-monospace, monospace;
+  font-size: 0.63rem;
+  text-transform: uppercase;
+}
+
+.attachment-chevron {
+  color: var(--ink-muted);
+  transition: transform 180ms ease-out;
+}
+
+.attachment-summary[aria-expanded="true"] .attachment-chevron {
+  transform: rotate(180deg);
+}
+
+.attachment-preview {
+  min-width: 0;
+  padding: 2px 0 18px 41px;
+}
+
+.attachment-status {
+  display: flex;
+  min-height: 48px;
+  margin: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-muted);
+}
+
+.attachment-error {
+  padding: 11px 12px;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-left: 3px solid var(--danger);
+}
+
+.attachment-error p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.attachment-error button {
+  min-height: 38px;
+  margin: 7px 0 -4px -8px;
+  color: var(--danger);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.attachment-markdown {
+  padding: 15px 16px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.attachment-image {
+  margin: 0;
+}
+
+.attachment-image img {
+  display: block;
+  width: 100%;
+  max-height: min(70vh, 640px);
+  object-fit: contain;
+  object-position: left center;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.attachment-image figcaption,
+.pdf-page figcaption {
+  margin-top: 6px;
+  color: var(--ink-muted);
+  font-family: "Azeret Mono", ui-monospace, monospace;
+  font-size: 0.62rem;
+}
+
+.pdf-document {
+  padding: 10px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.pdf-document-heading {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ink-muted);
+  font-family: "Azeret Mono", ui-monospace, monospace;
+  font-size: 0.63rem;
+  text-transform: uppercase;
+}
+
+.pdf-page-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.pdf-page-actions button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+  color: var(--accent);
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pdf-page {
+  margin: 0;
+}
+
+.pdf-page + .pdf-page {
+  margin-top: 18px;
+}
+
+.pdf-page-frame {
+  width: 100%;
+  min-height: 120px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 7px color-mix(in oklab, var(--ink), transparent 86%);
+}
+
+.pdf-page canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
 }
 
 .response-form {

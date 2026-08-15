@@ -71,6 +71,7 @@ opaque FCM v1 signal, and verifies the foreground refresh.
 
 ## Attachments
 
-Attachment paths are displayed as part of the durable request record. Binary
-preview and download controls can be added when mdbase connect exposes binary
-collection operations without changing the Pickle protocol or app structure.
+Pickle requests read attachment bytes through the scoped mdbase Connect file
+capability. Attachment rows load on demand and render images, PDFs, and
+Markdown inline in the request inspector. The application declaration requests
+only file listing and reading under the collection's `attachments` folder.

@@ -16,6 +16,17 @@ test("reviews and approves a request", async ({ page }) => {
   await expect(
     page.getByText("release-report.pdf", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: /release-notes\.md/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Release notes" }),
+  ).toBeVisible();
+  await expect(page.getByRole("table")).toBeVisible();
+  await page.getByRole("button", { name: /deployment-map\.svg/ }).click();
+  await expect(
+    page.getByRole("img", { name: "deployment-map.svg" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /release-report\.pdf/ }).click();
+  await expect(page.getByRole("img", { name: "Page 1" })).toBeVisible();
   await page.getByLabel(/Comment/).fill("Approved from the live app test.");
   await page.getByRole("button", { name: "Approve", exact: true }).click();
 
@@ -108,7 +119,7 @@ test("keeps long request details inside the phone viewport", async ({
     element.textContent = value;
   }, unbrokenText);
   await page
-    .locator(".plain-markdown p")
+    .locator(".markdown p")
     .first()
     .evaluate((element, value) => {
       element.textContent = value;

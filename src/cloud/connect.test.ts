@@ -121,4 +121,14 @@ describe("Pickle mdbase connection", () => {
       $expr: 'event.data.types != null && "pickle_request" in event.data.types',
     });
   });
+
+  it("requests read-only attachment access inside the attachment folder", () => {
+    expect(bundledManifest.requirements.files).toEqual({
+      actions: ["list", "read"],
+      scope: { kind: "selected_folders", folders: ["attachments"] },
+    });
+    expect(bundledManifest.requirements.capabilities.required).toEqual(
+      expect.arrayContaining(["files.list", "files.read"]),
+    );
+  });
 });

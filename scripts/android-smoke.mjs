@@ -48,6 +48,21 @@ async function main() {
       () => devtools.hasText("release-report.pdf"),
       "the native request detail",
     );
+    await devtools.clickButton("release-notes.md");
+    await waitFor(
+      () => devtools.hasText("143 passed"),
+      "the native Markdown attachment preview",
+    );
+    await devtools.clickButton("deployment-map.svg");
+    await waitFor(
+      () => devtools.hasSelector('img[alt="deployment-map.svg"]'),
+      "the native image attachment preview",
+    );
+    await devtools.clickButton("release-report.pdf");
+    await waitFor(
+      () => devtools.hasSelector('canvas[aria-label="Page 1"]'),
+      "the native PDF attachment preview",
+    );
     await devtools.fillLabel("Comment", "Approved by the Android smoke test.");
     await devtools.clickButton("Approve", true);
     await waitFor(
@@ -92,7 +107,7 @@ async function main() {
     );
 
     console.log(
-      "Android smoke passed: response flow, hardware Back, notification channel, FCM registration, live opaque push, and process restart.",
+      "Android smoke passed: attachment previews, response flow, hardware Back, notification channel, FCM registration, live opaque push, and process restart.",
     );
   } finally {
     devtools?.close();
@@ -219,6 +234,12 @@ class DevtoolsSession {
   hasText(text) {
     return this.evaluate(
       `document.body?.innerText.includes(${JSON.stringify(text)})`,
+    );
+  }
+
+  hasSelector(selector) {
+    return this.evaluate(
+      `Boolean(document.querySelector(${JSON.stringify(selector)}))`,
     );
   }
 
