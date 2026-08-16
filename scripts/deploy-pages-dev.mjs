@@ -35,6 +35,7 @@ export function developmentDeploymentEnvironment(environment) {
     VITE_BASE_PATH: "/",
     PICKLE_APP_URL: developmentDeployment.appOrigin,
     PICKLE_WEB_ONLY: "1",
+    PICKLE_FIREBASE_PROJECT_ID: "",
     VITE_MDBASE_CONNECT_URL: developmentDeployment.connectOrigin,
     VITE_MDBASE_CONNECT_LOOPBACK_URL: developmentDeployment.loopbackOrigin,
   };
@@ -171,7 +172,7 @@ async function verifyLiveDeployment() {
   );
 }
 
-function verifyManifest(manifest) {
+export function verifyManifest(manifest) {
   const callback = `${developmentDeployment.appOrigin}/auth/mdbase/callback`;
   if (
     manifest.homepage !== `${developmentDeployment.appOrigin}/` ||
@@ -181,6 +182,11 @@ function verifyManifest(manifest) {
   ) {
     throw new Error(
       `Pickle deployment manifest does not declare ${developmentDeployment.appOrigin}.`,
+    );
+  }
+  if (manifest.notifications?.native_delivery !== undefined) {
+    throw new Error(
+      "Pickle staging must not declare native notification delivery.",
     );
   }
 }
