@@ -14,6 +14,9 @@ import {
 
 const development = process.argv.includes("--development");
 const webOnly = process.env.PICKLE_WEB_ONLY === "1";
+const firebaseProjectId = (
+  process.env.PICKLE_FIREBASE_PROJECT_ID ?? "tasknotes-462906"
+).trim();
 const appUrl = (
   process.env.PICKLE_APP_URL ??
   (development ? "http://127.0.0.1:4198" : "https://pickle.mdbase.dev")
@@ -103,11 +106,14 @@ const manifest = {
         },
       },
     ],
-    native_delivery: {
-      mode: "managed_fcm",
-      firebase_project_id:
-        process.env.PICKLE_FIREBASE_PROJECT_ID ?? "tasknotes-462906",
-    },
+    ...(firebaseProjectId
+      ? {
+          native_delivery: {
+            mode: "managed_fcm",
+            firebase_project_id: firebaseProjectId,
+          },
+        }
+      : {}),
   },
 };
 

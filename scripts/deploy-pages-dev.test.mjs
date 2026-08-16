@@ -4,6 +4,7 @@ import {
   deployDevelopmentPickle,
   developmentDeployment,
   developmentDeploymentEnvironment,
+  verifyManifest,
 } from "./deploy-pages-dev.mjs";
 
 describe("Pickle development deployment", () => {
@@ -15,9 +16,32 @@ describe("Pickle development deployment", () => {
       VITE_BASE_PATH: "/",
       PICKLE_APP_URL: "https://staging.pickle-9zb.pages.dev",
       PICKLE_WEB_ONLY: "1",
+      PICKLE_FIREBASE_PROJECT_ID: "",
       VITE_MDBASE_CONNECT_URL: "https://connect-staging.mdbase.dev",
       VITE_MDBASE_CONNECT_LOOPBACK_URL: "http://127.0.0.1:28486",
     });
+  });
+
+  it("rejects production native notification delivery in staging", () => {
+    const manifest = {
+      homepage: `${developmentDeployment.appOrigin}/`,
+      icon: `${developmentDeployment.appOrigin}/icon.svg`,
+      redirect_uris: [
+        `${developmentDeployment.appOrigin}/auth/mdbase/callback`,
+      ],
+      notifications: {
+        native_delivery: {
+          mode: "managed_fcm",
+          firebase_project_id: "tasknotes-462906",
+        },
+      },
+    };
+
+    expect(() => verifyManifest(manifest)).toThrow(
+      "Pickle staging must not declare native notification delivery.",
+    );
+    delete manifest.notifications.native_delivery;
+    expect(() => verifyManifest(manifest)).not.toThrow();
   });
 
   it("deploys only the staging branch and verifies the stable alias", async () => {
