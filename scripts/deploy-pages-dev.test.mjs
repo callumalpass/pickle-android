@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  candidateBDevelopmentDeployment,
   deployDevelopmentPickle,
   developmentDeployment,
+  developmentDeploymentFor,
   developmentDeploymentEnvironment,
   verifyManifest,
 } from "./deploy-pages-dev.mjs";
@@ -20,6 +22,46 @@ describe("Pickle development deployment", () => {
       VITE_MDBASE_CONNECT_URL: "https://connect-staging.mdbase.dev",
       VITE_MDBASE_CONNECT_LOOPBACK_URL: "http://127.0.0.1:28486",
     });
+  });
+
+  it("deploys Candidate B only to its isolated branch and authority", async () => {
+    const environment = {
+      MDBASE_CANDIDATE_B_CONNECT_URL:
+        "https://mdbase-connect-candidate-b.onrender.com",
+    };
+    expect(developmentDeploymentFor(environment)).toBe(
+      candidateBDevelopmentDeployment,
+    );
+    expect(developmentDeploymentEnvironment(environment)).toMatchObject({
+      PICKLE_APP_URL: "https://candidate-b.pickle-9zb.pages.dev",
+      VITE_MDBASE_CONNECT_URL:
+        "https://mdbase-connect-candidate-b.onrender.com",
+    });
+
+    const run = vi.fn(async () => undefined);
+    const prepareRoutes = vi.fn(async () => undefined);
+    const verifyBuild = vi.fn(async () => undefined);
+    const verifyDeployment = vi.fn(async () => undefined);
+    await deployDevelopmentPickle(environment, {
+      run,
+      prepareRoutes,
+      verifyBuild,
+      verifyDeployment,
+    });
+    expect(run.mock.calls[1][1]).toEqual(
+      expect.arrayContaining(["--branch=candidate-b"]),
+    );
+    expect(verifyDeployment).toHaveBeenCalledWith(
+      candidateBDevelopmentDeployment,
+    );
+  });
+
+  it("rejects an arbitrary Candidate B authority override", () => {
+    expect(() =>
+      developmentDeploymentFor({
+        MDBASE_CANDIDATE_B_CONNECT_URL: "https://connect.mdbase.dev",
+      }),
+    ).toThrow("Candidate B Pickle requires");
   });
 
   it("rejects production native notification delivery in staging", () => {

@@ -18,6 +18,13 @@ export const developmentDeployment = Object.freeze({
   wranglerVersion: "4.114.0",
 });
 
+export const candidateBDevelopmentDeployment = Object.freeze({
+  ...developmentDeployment,
+  appOrigin: "https://candidate-b.pickle-9zb.pages.dev",
+  connectOrigin: "https://mdbase-connect-candidate-b.onrender.com",
+  branch: "candidate-b",
+});
+
 const projectRoot = resolve(import.meta.dirname, "..");
 const manifestTargets = [
   resolve(projectRoot, "public", ".well-known", "mdbase-app.json"),
@@ -29,15 +36,29 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   await deployDevelopmentPickle(process.env);
 }
 
-export function developmentDeploymentEnvironment(environment) {
+export function developmentDeploymentFor(environment) {
+  const requested = environment.MDBASE_CANDIDATE_B_CONNECT_URL;
+  if (requested === undefined || requested === "") return developmentDeployment;
+  if (requested !== candidateBDevelopmentDeployment.connectOrigin) {
+    throw new Error(
+      `Candidate B Pickle requires ${candidateBDevelopmentDeployment.connectOrigin}.`,
+    );
+  }
+  return candidateBDevelopmentDeployment;
+}
+
+export function developmentDeploymentEnvironment(
+  environment,
+  deployment = developmentDeploymentFor(environment),
+) {
   return {
     ...environment,
     VITE_BASE_PATH: "/",
-    PICKLE_APP_URL: developmentDeployment.appOrigin,
+    PICKLE_APP_URL: deployment.appOrigin,
     PICKLE_WEB_ONLY: "1",
     PICKLE_FIREBASE_PROJECT_ID: "",
-    VITE_MDBASE_CONNECT_URL: developmentDeployment.connectOrigin,
-    VITE_MDBASE_CONNECT_LOOPBACK_URL: developmentDeployment.loopbackOrigin,
+    VITE_MDBASE_CONNECT_URL: deployment.connectOrigin,
+    VITE_MDBASE_CONNECT_LOOPBACK_URL: deployment.loopbackOrigin,
   };
 }
 
@@ -50,7 +71,11 @@ export async function deployDevelopmentPickle(
     verifyDeployment: verifyLiveDeployment,
   },
 ) {
-  const deploymentEnvironment = developmentDeploymentEnvironment(environment);
+  const deployment = developmentDeploymentFor(environment);
+  const deploymentEnvironment = developmentDeploymentEnvironment(
+    environment,
+    deployment,
+  );
   const previousManifests = await Promise.all(
     manifestTargets.map((target) => readFile(target)),
   );
@@ -58,7 +83,7 @@ export async function deployDevelopmentPickle(
   try {
     await dependencies.run(pnpm, ["build"], deploymentEnvironment);
     await dependencies.prepareRoutes();
-    await dependencies.verifyBuild();
+    await dependencies.verifyBuild(deployment);
   } finally {
     await Promise.all(
       manifestTargets.map((target, index) =>
@@ -71,21 +96,19 @@ export async function deployDevelopmentPickle(
     pnpm,
     [
       "dlx",
-      `wrangler@${developmentDeployment.wranglerVersion}`,
+      `wrangler@${deployment.wranglerVersion}`,
       "pages",
       "deploy",
       "dist",
-      `--project-name=${developmentDeployment.project}`,
-      `--branch=${developmentDeployment.branch}`,
+      `--project-name=${deployment.project}`,
+      `--branch=${deployment.branch}`,
       "--commit-dirty=true",
     ],
     deploymentEnvironment,
   );
-  await dependencies.verifyDeployment();
+  await dependencies.verifyDeployment(deployment);
 
-  console.log(
-    `Development Pickle deployed: ${developmentDeployment.appOrigin}/`,
-  );
+  console.log(`Development Pickle deployed: ${deployment.appOrigin}/`);
 }
 
 async function prepareDevelopmentRoutes() {
@@ -104,14 +127,14 @@ async function prepareDevelopmentRoutes() {
   ]);
 }
 
-async function verifyDevelopmentBuild() {
+async function verifyDevelopmentBuild(deployment = developmentDeployment) {
   const manifest = JSON.parse(
     await readFile(
       resolve(projectRoot, "dist", ".well-known", "mdbase-app.json"),
       "utf8",
     ),
   );
-  verifyManifest(manifest);
+  verifyManifest(manifest, deployment);
 
   const index = await readFile(resolve(projectRoot, "dist", "index.html"));
   const callback = await readFile(
@@ -132,8 +155,8 @@ async function verifyDevelopmentBuild() {
     scripts.map((script) => readFile(script, "utf8")),
   );
   for (const expected of [
-    developmentDeployment.connectOrigin,
-    developmentDeployment.loopbackOrigin,
+    deployment.connectOrigin,
+    deployment.loopbackOrigin,
   ]) {
     if (!sources.some((source) => source.includes(expected))) {
       throw new Error(`Pickle deployment bundle does not contain ${expected}.`);
@@ -141,21 +164,21 @@ async function verifyDevelopmentBuild() {
   }
 }
 
-async function verifyLiveDeployment() {
+async function verifyLiveDeployment(deployment = developmentDeployment) {
   let lastError;
   for (let attempt = 1; attempt <= 12; attempt += 1) {
     try {
       const manifestResponse = await fetch(
-        `${developmentDeployment.appOrigin}/.well-known/mdbase-app.json?attempt=${attempt}`,
+        `${deployment.appOrigin}/.well-known/mdbase-app.json?attempt=${attempt}`,
         { cache: "no-store" },
       );
       if (!manifestResponse.ok) {
         throw new Error(`manifest returned HTTP ${manifestResponse.status}`);
       }
-      verifyManifest(await manifestResponse.json());
+      verifyManifest(await manifestResponse.json(), deployment);
 
       const callbackResponse = await fetch(
-        `${developmentDeployment.appOrigin}/auth/mdbase/callback`,
+        `${deployment.appOrigin}/auth/mdbase/callback`,
         { cache: "no-store" },
       );
       if (!callbackResponse.ok) {
@@ -172,16 +195,16 @@ async function verifyLiveDeployment() {
   );
 }
 
-export function verifyManifest(manifest) {
-  const callback = `${developmentDeployment.appOrigin}/auth/mdbase/callback`;
+export function verifyManifest(manifest, deployment = developmentDeployment) {
+  const callback = `${deployment.appOrigin}/auth/mdbase/callback`;
   if (
-    manifest.homepage !== `${developmentDeployment.appOrigin}/` ||
-    manifest.icon !== `${developmentDeployment.appOrigin}/icon.svg` ||
+    manifest.homepage !== `${deployment.appOrigin}/` ||
+    manifest.icon !== `${deployment.appOrigin}/icon.svg` ||
     manifest.redirect_uris?.length !== 1 ||
     manifest.redirect_uris[0] !== callback
   ) {
     throw new Error(
-      `Pickle deployment manifest does not declare ${developmentDeployment.appOrigin}.`,
+      `Pickle deployment manifest does not declare ${deployment.appOrigin}.`,
     );
   }
   if (manifest.notifications?.native_delivery !== undefined) {
