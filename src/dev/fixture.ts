@@ -181,20 +181,10 @@ export class FixturePickleRepository implements PickleRepository {
     const blob = fixture();
     return {
       blob,
-      file: {
-        fileId: `fixture-${attachment.filename}`,
-        path: attachment.path,
-        revision: "fixture-1",
-        contentDigest: `sha256:${"0".repeat(64)}`,
-        size: blob.size,
-        mediaType: blob.type,
-        mediaClass: blob.type.startsWith("image/")
-          ? "image"
-          : blob.type === "application/pdf"
-            ? "pdf"
-            : "other",
-        modifiedAt: "2026-07-24T07:42:00Z",
-      },
+      path: attachment.path,
+      filename: attachment.filename,
+      size: blob.size,
+      mediaType: blob.type,
     };
   }
 

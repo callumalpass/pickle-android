@@ -71,7 +71,9 @@ opaque FCM v1 signal, and verifies the foreground refresh.
 
 ## Attachments
 
-Pickle requests read attachment bytes through the scoped mdbase Connect file
-capability. Attachment rows load on demand and render images, PDFs, and
-Markdown inline in the request inspector. The application declaration requests
-only file listing and reading under the collection's `attachments` folder.
+Pickle stores Markdown attachments as typed `pickle_attachment` records and
+reads them through the ordinary record capability. Binary attachments remain
+files and use the scoped mdbase Connect file capability. Attachment rows load
+on demand and render images, PDFs, and Markdown inline in the request inspector.
+The application declaration limits file listing and reading to the collection's
+`attachments` folder.

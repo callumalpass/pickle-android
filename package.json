@@ -34,7 +34,7 @@
     "@fontsource/azeret-mono": "5.3.0",
     "@mdbase-dev/connect": "file:vendor/mdbase-dev-connect-0.1.0-beta.72-04465cac0190.tgz",
     "@mdbase-dev/connect-protocol": "file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.72-04465cac0190.tgz",
-    "@mdbase-dev/pickle": "file:vendor/mdbase-dev-pickle-0.1.0-beta.72-04465cac0190.tgz",
+    "@mdbase-dev/pickle": "file:vendor/mdbase-dev-pickle-0.1.0-beta.71-attachment.tgz",
     "lucide-react": "1.25.0",
     "pdfjs-dist": "5.4.149",
     "react": "19.2.8",

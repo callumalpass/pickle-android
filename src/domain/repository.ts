@@ -1,5 +1,4 @@
 import type {
-  CollectionFileDescriptor,
   ConnectProblem,
   ConnectRequestOptions,
   JsonObject,
@@ -8,6 +7,7 @@ import type {
 import {
   PickleCollection,
   type PickleAttachment,
+  type PickleAttachmentContent,
   type PickleFrontmatter,
   type PicklePendingResponse,
   type PickleRequest,
@@ -18,10 +18,7 @@ const READ_TIMEOUT_MS = 10_000;
 const WRITE_TIMEOUT_MS = 20_000;
 const WATCH_START_TIMEOUT_MS = 10_000;
 
-export interface PickleAttachmentContent {
-  file: CollectionFileDescriptor;
-  blob: Blob;
-}
+export type { PickleAttachmentContent } from "@mdbase-dev/pickle";
 
 export interface PickleRepository {
   readonly collectionId: string;
@@ -65,30 +62,14 @@ export class ConnectedPickleRepository implements PickleRepository {
     return this.collection.list(withTimeout(options, READ_TIMEOUT_MS));
   }
 
-  async readAttachment(
+  readAttachment(
     attachment: PickleAttachment,
     options: ConnectRequestOptions = {},
   ): Promise<PickleAttachmentContent | null> {
-    const path = attachment.path.replace(/^\/+/, "");
-    const separator = path.lastIndexOf("/");
-    const folder = separator < 0 ? undefined : path.slice(0, separator);
-    let match: CollectionFileDescriptor | null = null;
-    for await (const file of this.connection.files.list({
-      ...withTimeout(options, READ_TIMEOUT_MS),
-      ...(folder ? { folder } : {}),
-    })) {
-      if (file.path !== path) continue;
-      match = file;
-      break;
-    }
-    if (!match) return null;
-    return {
-      file: match,
-      blob: await this.connection.files.download(
-        match,
-        withTimeout(options, READ_TIMEOUT_MS),
-      ),
-    };
+    return this.collection.readAttachment(
+      attachment,
+      withTimeout(options, READ_TIMEOUT_MS),
+    );
   }
 
   respond(

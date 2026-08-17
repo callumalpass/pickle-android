@@ -73,6 +73,13 @@
               "source": "types/pickle_response_ack.md",
               "target": "_types/pickle_response_ack.md",
               "digest": "sha256:2530c8d21bb711889f20e0d096045cb6c9a7618583b1e2afff7ada72367de41f"
+            },
+            {
+              "kind": "type",
+              "mode": "seed",
+              "source": "types/pickle_attachment.md",
+              "target": "_types/pickle_attachment.md",
+              "digest": "sha256:67f14eeee2c126e99d8b37b7508fa148955b924367e2d2941b1793d1c814ec25"
             }
           ]
         },
@@ -92,6 +99,10 @@
           {
             "source": "types/pickle_response_ack.md",
             "document": "---\nkind: mdbase.type\nname: pickle_response_ack\nversion: 1\ndescription: Acknowledge that a Pickle message was read.\nschema:\n  dialect: json-schema-2020-12\n  value:\n    $schema: \"https://json-schema.org/draft/2020-12/schema\"\n    type: object\n    additionalProperties: true\n    required: [request]\n    properties:\n      type: { const: pickle_response_ack }\n      id: { type: string }\n      request: { type: string }\n      message: { type: string }\n      responded_at: { type: string, format: date-time }\n      responder: { type: string }\n      attachment_paths:\n        type: array\n        items: { type: string }\ncollection:\n  display:\n    name_field: message\n  links:\n    request:\n      target_type: pickle_request\n      validate_exists: true\n  unique:\n    - field: id\n      scope: collection\nlifecycle:\n  on_create:\n    set:\n      id: { ulid: true }\n      responded_at: { now: true }\n---\n"
+          },
+          {
+            "source": "types/pickle_attachment.md",
+            "document": "---\nkind: mdbase.type\nname: pickle_attachment\nversion: 1\ndescription: Markdown content attached to a Pickle request.\nschema:\n  dialect: json-schema-2020-12\n  value:\n    $schema: \"https://json-schema.org/draft/2020-12/schema\"\n    type: object\n    additionalProperties: true\n    required: [request_id, filename, content_type, size_bytes, sha256]\n    properties:\n      type: { const: pickle_attachment }\n      request_id: { type: string, minLength: 1 }\n      filename: { type: string, minLength: 1 }\n      content_type: { type: string, minLength: 1 }\n      size_bytes: { type: integer, minimum: 0 }\n      sha256: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }\n      created_at: { type: string, format: date-time }\ncollection:\n  display:\n    name_field: filename\n---\n"
           }
         ],
         "provides": [

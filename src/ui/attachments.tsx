@@ -67,7 +67,7 @@ function AttachmentItem({
     state.status === "ready"
       ? attachmentKind(
           attachment.filename,
-          state.content.file.mediaType || state.content.blob.type,
+          state.content.mediaType || state.content.blob.type,
         )
       : fallbackKind;
   const previewId = `attachment-${safeId(attachment.path)}`;
@@ -129,7 +129,7 @@ function AttachmentItem({
           <span>
             {attachmentLabel(kind)}
             {state.status === "ready"
-              ? ` · ${formatBytes(state.content.file.size)}`
+              ? ` · ${formatBytes(state.content.size)}`
               : ""}
           </span>
         </span>
