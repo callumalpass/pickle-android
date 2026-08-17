@@ -736,7 +736,7 @@ packages:
   "@mdbase-dev/pickle@file:vendor/mdbase-dev-pickle-0.1.0-beta.71-attachment.tgz":
     resolution:
       {
-        integrity: sha512-gAP7eUMJjX7Czbnbw7XpfG0BPcjTka3/OuclhbXWNyXX0xxqKypNLkVSIz0MVeB+ARxJId5LtlJQMw9otSdujw==,
+        integrity: sha512-0QzZxw7C94z1ETEMRvQPhzDafQLL1iaqz8HfCCJsqNJMd+BM3RR/gX93a0LRIrl/XecMMjEKMw1nWKJYxpFTAQ==,
         tarball: file:vendor/mdbase-dev-pickle-0.1.0-beta.71-attachment.tgz,
       }
     version: 0.1.0-beta.71

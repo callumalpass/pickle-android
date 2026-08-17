@@ -42,7 +42,7 @@
         "manifest": {
           "kind": "mdbase.type-pack",
           "id": "pickle.requests",
-          "version": "1.0.0",
+          "version": "1.1.0",
           "name": "Pickle requests",
           "description": "Pickle request and response record types.",
           "resources": [
