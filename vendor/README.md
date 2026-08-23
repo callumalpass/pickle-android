@@ -1,13 +1,13 @@
 # Vendored prerelease SDK
 
-The Connect SDK tarballs make this coordinated prerelease change installable
-before beta.32 is published. `mdbase-connect-sdk.json` records the immutable
-source revision, byte sizes, and SHA-512 digests.
+The Connect SDK tarballs make coordinated prerelease changes installable.
+`mdbase-connect-sdk.json` records the immutable source revision, byte sizes,
+and SHA-512 digests.
 
 Refresh them from the Connect worktree with:
 
 ```sh
-pnpm package:consumer --destination /path/to/pickle-android/vendor --packages connect,protocol,pickle
+pnpm package:consumer --destination /path/to/pickle-android/vendor --packages connect,devkit,protocol,pickle,testing
 ```
 
 Then update the `file:` references and run `pnpm install`. Return to exact npm
