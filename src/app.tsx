@@ -40,6 +40,19 @@ interface ConnectionIssue {
   message: string;
 }
 
+interface SessionOperationContext {
+  signal: AbortSignal;
+  current: () => boolean;
+}
+
+interface ActiveSessionOperation {
+  sequence: number;
+  controller: AbortController;
+  interruptible: boolean;
+}
+
+const SESSION_START_TIMEOUT_MS = 15_000;
+
 export function App({ repository: initialRepository }: AppProps = {}) {
   const snapshot = useSyncExternalStore(
     subscribeToPickleSession,
@@ -66,12 +79,116 @@ export function App({ repository: initialRepository }: AppProps = {}) {
       : (fixtureRepository ?? connectedRepository);
   const [error, setError] = useState<ConnectionIssue | null>(null);
   const [opening, setOpening] = useState(false);
-  const authorizationRequest = useRef<AbortController | null>(null);
-  const definitionRequest = useRef<AbortController | null>(null);
+  const startupRequest = useRef<AbortController | null>(null);
   const authorizationPending = useRef(false);
-  const handledCallbacks = useRef(new Set<string>());
+  const completedCallbacks = useRef(new Set<string>());
+  const callbackOperations = useRef(new Map<string, Promise<boolean>>());
+  const operationSequence = useRef(0);
+  const operationTail = useRef<Promise<unknown>>(Promise.resolve());
+  const activeOperation = useRef<ActiveSessionOperation | null>(null);
+  const operationsAlive = useRef(true);
   const lastReadyCollectionId = useRef<string | null>(null);
   const suppressSelectionRestore = useRef(false);
+
+  const runSessionOperation = useCallback(function runSessionOperation<Value>(
+    operation: (context: SessionOperationContext) => Promise<Value>,
+    {
+      abortActive = true,
+      interruptible = true,
+    }: { abortActive?: boolean; interruptible?: boolean } = {},
+  ): Promise<Value | undefined> {
+    const sequence = ++operationSequence.current;
+    if (abortActive && activeOperation.current?.interruptible !== false) {
+      activeOperation.current?.controller.abort(
+        "A newer Pickle operation superseded this one",
+      );
+    }
+    const controller = new AbortController();
+    const current = () =>
+      operationsAlive.current &&
+      (!interruptible || operationSequence.current === sequence) &&
+      !controller.signal.aborted;
+    const queued = operationTail.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (!current()) return undefined;
+        activeOperation.current = { sequence, controller, interruptible };
+        try {
+          return await operation({ signal: controller.signal, current });
+        } finally {
+          if (activeOperation.current?.sequence === sequence) {
+            activeOperation.current = null;
+          }
+        }
+      });
+    operationTail.current = queued.then(
+      () => undefined,
+      () => undefined,
+    );
+    return queued;
+  }, []);
+
+  useEffect(() => {
+    operationsAlive.current = true;
+    return () => {
+      operationsAlive.current = false;
+      operationSequence.current += 1;
+      activeOperation.current?.controller.abort("Pickle closed");
+      activeOperation.current = null;
+    };
+  }, []);
+
+  const startSession = useCallback(async () => {
+    const controller = replaceController(startupRequest);
+    const operationAtStart = operationSequence.current;
+    try {
+      requireConnectOutcome(
+        await pickleSession.start({
+          signal: controller.signal,
+          timeoutMs: SESSION_START_TIMEOUT_MS,
+        }),
+      );
+      if (
+        !controller.signal.aborted &&
+        operationSequence.current === operationAtStart
+      ) {
+        setError(null);
+      }
+    } catch (reason) {
+      const current = pickleSession.getSnapshot();
+      if (
+        !controller.signal.aborted &&
+        operationSequence.current === operationAtStart &&
+        current.status !== "start_failed" &&
+        current.status !== "destroyed"
+      ) {
+        setError(connectionIssue(reason));
+      }
+    }
+  }, []);
+
+  const selectCollection = useCallback(
+    (collectionId: string) =>
+      runSessionOperation(async ({ signal, current }) => {
+        if (current()) setOpening(false);
+        try {
+          requireConnectOutcome(
+            await pickleSession.start({
+              signal,
+              timeoutMs: SESSION_START_TIMEOUT_MS,
+            }),
+          );
+          if (!current()) return;
+          requireConnectOutcome(
+            pickleSession.select(collectionId, { history: "replace" }),
+          );
+          if (current()) setError(null);
+        } catch (reason) {
+          if (current()) setError(connectionIssue(reason));
+        }
+      }),
+    [runSessionOperation],
+  );
 
   useEffect(() => {
     if (snapshot.status === "ready") {
@@ -88,8 +205,8 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     }
     const collectionId = lastReadyCollectionId.current;
     if (!collectionId) return;
-    pickleSession.select(collectionId, { history: "replace" });
-  }, [snapshot]);
+    void selectCollection(collectionId);
+  }, [selectCollection, snapshot]);
 
   useEffect(() => {
     if (!usesSession) return;
@@ -97,56 +214,78 @@ export function App({ repository: initialRepository }: AppProps = {}) {
       const collectionId = lastReadyCollectionId.current;
       if (!collectionId) return;
       if (new URLSearchParams(window.location.search).has("collection")) return;
-      pickleSession.select(collectionId, { history: "replace" });
+      void selectCollection(collectionId);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [usesSession]);
+  }, [selectCollection, usesSession]);
 
-  const completeNative = useCallback(async (url: string) => {
-    if (!isNativeMdbaseCallback(url)) return;
-    if (handledCallbacks.current.has(url)) return;
-    handledCallbacks.current.add(url);
-    authorizationPending.current = false;
-    const controller = replaceController(authorizationRequest);
-    setOpening(true);
-    setError(null);
-    try {
-      requireConnectOutcome(
-        await pickleSession.handleAuthorizationCallback(url, {
-          signal: controller.signal,
-          timeoutMs: 20_000,
-        }),
-      );
-    } catch (reason) {
-      setError(connectionIssue(reason));
-    } finally {
-      setOpening(false);
-      await Browser.close().catch(() => undefined);
-    }
-  }, []);
+  const completeNative = useCallback(
+    (url: string): Promise<boolean> => {
+      if (!isNativeMdbaseCallback(url)) return Promise.resolve(false);
+      const key = authorizationCallbackKey(url);
+      if (completedCallbacks.current.has(key)) return Promise.resolve(true);
+      const existing = callbackOperations.current.get(key);
+      if (existing) return existing;
+
+      authorizationPending.current = false;
+      const pending = runSessionOperation(
+        async ({ signal, current }) => {
+          if (current()) {
+            setOpening(true);
+            setError(null);
+          }
+          let succeeded = false;
+          try {
+            requireConnectOutcome(
+              await pickleSession.start({
+                signal,
+                timeoutMs: SESSION_START_TIMEOUT_MS,
+              }),
+            );
+            if (!current()) return false;
+            requireConnectOutcome(
+              await pickleSession.handleAuthorizationCallback(url, {
+                signal,
+                timeoutMs: 20_000,
+              }),
+            );
+            succeeded = true;
+            completedCallbacks.current.add(key);
+            return true;
+          } catch (reason) {
+            if (current()) setError(connectionIssue(reason));
+            return false;
+          } finally {
+            if (current()) setOpening(false);
+            if (succeeded || current()) {
+              await Browser.close().catch(() => undefined);
+            }
+          }
+        },
+        { abortActive: false },
+      ).then((value) => value === true);
+      callbackOperations.current.set(key, pending);
+      void pending.finally(() => {
+        if (callbackOperations.current.get(key) === pending) {
+          callbackOperations.current.delete(key);
+        }
+      });
+      return pending;
+    },
+    [runSessionOperation],
+  );
 
   useEffect(() => {
     if (!usesSession) return;
-    let active = true;
-    let startup = new AbortController();
-    const start = () => {
-      startup.abort("Pickle startup superseded");
-      const controller = new AbortController();
-      startup = controller;
-      void pickleSession
-        .start({ signal: controller.signal, timeoutMs: 15_000 })
-        .then(requireConnectOutcome)
-        .catch((reason: unknown) => {
-          if (active && !controller.signal.aborted)
-            setError(connectionIssue(reason));
-        });
-    };
-    start();
+    let mounted = true;
+    queueMicrotask(() => {
+      if (mounted) void startSession();
+    });
     if (!Capacitor.isNativePlatform()) {
       return () => {
-        active = false;
-        startup.abort("Pickle closed");
+        mounted = false;
+        abortController(startupRequest, "Pickle closed");
       };
     }
     const listener = CapacitorApp.addListener("appUrlOpen", ({ url }) => {
@@ -155,18 +294,22 @@ export function App({ repository: initialRepository }: AppProps = {}) {
     const appState = CapacitorApp.addListener(
       "appStateChange",
       ({ isActive }) => {
-        if (isActive) start();
+        if (isActive) void startSession();
         else {
-          startup.abort("Pickle moved to the background");
-          authorizationRequest.current?.abort("Pickle moved to the background");
-          definitionRequest.current?.abort("Pickle moved to the background");
+          abortController(startupRequest, "Pickle moved to the background");
+          if (activeOperation.current?.interruptible !== false) {
+            activeOperation.current?.controller.abort(
+              "Pickle moved to the background",
+            );
+          }
         }
       },
     );
     const browserFinished = Browser.addListener("browserFinished", () => {
       if (!authorizationPending.current) return;
       authorizationPending.current = false;
-      authorizationRequest.current?.abort("Authorization browser closed");
+      operationSequence.current += 1;
+      activeOperation.current?.controller.abort("Authorization browser closed");
       setOpening(false);
       setError({
         code: "authorization_cancelled",
@@ -178,15 +321,13 @@ export function App({ repository: initialRepository }: AppProps = {}) {
       if (value?.url) void completeNative(value.url);
     });
     return () => {
-      active = false;
-      startup.abort("Pickle closed");
-      abortController(authorizationRequest, "Pickle closed");
-      abortController(definitionRequest, "Pickle closed");
+      mounted = false;
+      abortController(startupRequest, "Pickle closed");
       void listener.then((handle) => handle.remove());
       void appState.then((handle) => handle.remove());
       void browserFinished.then((handle) => handle.remove());
     };
-  }, [completeNative, usesSession]);
+  }, [completeNative, startSession, usesSession]);
 
   useEffect(() => {
     if (!usesSession) return;
@@ -205,85 +346,219 @@ export function App({ repository: initialRepository }: AppProps = {}) {
   if (repository) {
     const collectionId = repository.collectionId;
     return (
-      <PickleApp
-        key={collectionId}
-        repository={repository}
-        onChangeCollection={
-          usesSession
-            ? () => {
-                setError(null);
-                suppressSelectionRestore.current = true;
-                pickleSession.clearSelection({ history: "replace" });
-              }
-            : undefined
-        }
-        onDisconnect={() => {
-          if (!usesSession || snapshot.status !== "ready") return;
-          const selectedCollectionId = snapshot.collectionId;
-          void pickleNotifications
-            .disable()
-            .catch(() => undefined)
-            .finally(() => {
-              pickleSession.forget(selectedCollectionId);
-              lastReadyCollectionId.current = null;
-              suppressSelectionRestore.current = true;
-              setError(null);
-            });
-        }}
-      />
+      <>
+        {error ? (
+          <div className="connection-error" role="alert">
+            <strong>{error.title}</strong>
+            <p>{error.message}</p>
+          </div>
+        ) : null}
+        <PickleApp
+          key={collectionId}
+          repository={repository}
+          onChangeCollection={
+            usesSession
+              ? () => {
+                  void runSessionOperation(async ({ signal, current }) => {
+                    if (current()) setOpening(false);
+                    try {
+                      requireConnectOutcome(
+                        await pickleSession.start({
+                          signal,
+                          timeoutMs: SESSION_START_TIMEOUT_MS,
+                        }),
+                      );
+                      if (!current()) return;
+                      suppressSelectionRestore.current = true;
+                      requireConnectOutcome(
+                        pickleSession.clearSelection({ history: "replace" }),
+                      );
+                      if (current()) setError(null);
+                    } catch (reason) {
+                      if (current()) {
+                        suppressSelectionRestore.current = false;
+                        setError(connectionIssue(reason));
+                      }
+                    }
+                  });
+                }
+              : undefined
+          }
+          onDisconnect={() => {
+            if (!usesSession || snapshot.status !== "ready") return;
+            const selectedCollectionId = snapshot.collectionId;
+            void runSessionOperation(
+              async ({ signal, current }) => {
+                if (current()) {
+                  setOpening(false);
+                  setError(null);
+                }
+                let notificationsDisabled = false;
+                try {
+                  await pickleNotifications.disable({
+                    signal,
+                    timeoutMs: 15_000,
+                  });
+                  notificationsDisabled = true;
+                  if (!current()) return;
+                  requireConnectOutcome(
+                    await pickleSession.start({
+                      signal,
+                      timeoutMs: SESSION_START_TIMEOUT_MS,
+                    }),
+                  );
+                  if (!current()) return;
+                  requireConnectOutcome(
+                    pickleSession.forget(selectedCollectionId),
+                  );
+                  if (!current()) return;
+                  lastReadyCollectionId.current = null;
+                  suppressSelectionRestore.current = true;
+                  setError(null);
+                } catch (reason) {
+                  if (!current()) return;
+                  const issue = connectionIssue(reason);
+                  setError(
+                    notificationsDisabled
+                      ? {
+                          ...issue,
+                          title: "Collection not fully disconnected",
+                          message: `Notifications were disabled, but Pickle could not forget this collection. ${issue.message}`,
+                        }
+                      : issue,
+                  );
+                }
+              },
+              { interruptible: false },
+            );
+          }}
+        />
+      </>
     );
   }
 
   function connect() {
-    const controller = replaceController(authorizationRequest);
-    authorizationPending.current = Capacitor.isNativePlatform();
-    setOpening(true);
-    setError(null);
-    void pickleSession
-      .authorize(
-        snapshot.status === "authorization_required" ? "selected" : "choose",
-        { signal: controller.signal, timeoutMs: 30_000 },
-      )
-      .then((outcome) => {
-        if (requireConnectOutcome(outcome).kind === "connected") {
-          authorizationPending.current = false;
-          setOpening(false);
+    const target =
+      snapshot.status === "authorization_required" ? "selected" : "choose";
+    return runSessionOperation(
+      async ({ signal, current }) => {
+        if (current()) {
+          authorizationPending.current = Capacitor.isNativePlatform();
+          setOpening(true);
+          setError(null);
         }
-      })
-      .catch((reason) => {
-        authorizationPending.current = false;
-        setOpening(false);
-        setError(connectionIssue(reason));
-      });
+        try {
+          requireConnectOutcome(
+            await pickleSession.start({
+              signal,
+              timeoutMs: SESSION_START_TIMEOUT_MS,
+            }),
+          );
+          if (!current()) return;
+          const outcome = await pickleSession.authorize(target, {
+            signal,
+            timeoutMs: 30_000,
+          });
+          if (
+            requireConnectOutcome(outcome).kind === "connected" &&
+            current()
+          ) {
+            authorizationPending.current = false;
+          }
+        } catch (reason) {
+          if (current()) {
+            authorizationPending.current = false;
+            setError(connectionIssue(reason));
+          }
+        } finally {
+          if (current()) setOpening(false);
+        }
+      },
+      { interruptible: false },
+    );
+  }
+
+  function applyCollectionSetup() {
+    return runSessionOperation(
+      async ({ signal, current }) => {
+        if (current()) {
+          setOpening(true);
+          setError(null);
+        }
+        try {
+          requireConnectOutcome(
+            await pickleSession.start({
+              signal,
+              timeoutMs: SESSION_START_TIMEOUT_MS,
+            }),
+          );
+          if (!current()) return;
+          requireConnectOutcome(
+            await pickleSession.applyCollectionSetup({
+              signal,
+              timeoutMs: 30_000,
+            }),
+          );
+        } catch (reason) {
+          if (current()) setError(connectionIssue(reason));
+        } finally {
+          if (current()) setOpening(false);
+        }
+      },
+      { interruptible: false },
+    );
   }
 
   const unavailableIssue =
-    snapshot.status === "unavailable"
+    snapshot.status === "start_failed"
       ? {
-          code: snapshot.reason,
-          title: "Choose the collection again",
-          message:
-            snapshot.reason === "invalid_stored_grant"
-              ? "This saved authorization is no longer compatible with Pickle."
-              : snapshot.reason === "authorization_lost"
-                ? "Pickle no longer has access to this collection."
-                : "This bookmarked collection is not authorized on this device.",
+          code: snapshot.problem.code,
+          title: "Could not open Pickle",
+          message: snapshot.problem.message,
         }
-      : snapshot.status === "authorization_required"
+      : snapshot.status === "destroyed"
         ? {
-            code: "authorization_required",
-            title: "Review updated access",
-            message:
-              "Pickle’s required access or source-of-truth contract changed. Review it in mdbase to continue.",
+            code: "session_destroyed",
+            title: "Pickle session closed",
+            message: "Reload Pickle to open a new connection session.",
           }
-        : snapshot.status === "blocked"
+        : snapshot.status === "unavailable"
           ? {
-              code: snapshot.problem.code,
-              title: "This collection needs attention",
-              message: snapshot.problem.message,
+              code: snapshot.reason,
+              title: "Choose the collection again",
+              message:
+                snapshot.reason === "invalid_stored_grant"
+                  ? "This saved authorization is no longer compatible with Pickle."
+                  : snapshot.reason === "authorization_lost"
+                    ? "Pickle no longer has access to this collection."
+                    : "This bookmarked collection is not authorized on this device.",
             }
-          : null;
+          : snapshot.status === "authorization_required"
+            ? {
+                code: "authorization_required",
+                title: "Review updated access",
+                message:
+                  "Pickle’s required access or source-of-truth contract changed. Review it in mdbase to continue.",
+              }
+            : snapshot.status === "blocked"
+              ? {
+                  code: snapshot.problem.code,
+                  title: "This collection needs attention",
+                  message: snapshot.problem.message,
+                }
+              : null;
   const displayedError = error ?? unavailableIssue;
+  const startupRetry = snapshot.status === "not_started" && error !== null;
+  const lifecyclePending =
+    (snapshot.status === "not_started" && !startupRetry) ||
+    snapshot.status === "starting";
+  const selectedUnusableCollectionId =
+    snapshot.status !== "ready" && "collectionId" in snapshot
+      ? snapshot.collectionId
+      : null;
+  const alternativeConnections = snapshot.connections.filter(
+    (connection) => connection.collectionId !== selectedUnusableCollectionId,
+  );
 
   return (
     <main className="connection-screen">
@@ -302,6 +577,7 @@ export function App({ repository: initialRepository }: AppProps = {}) {
           <p>{displayedError.message}</p>
         </div>
       ) : null}
+      {lifecyclePending ? <p role="status">Opening Pickle…</p> : null}
       {snapshot.status === "checking_setup" ? (
         <p role="status">Checking this collection’s Pickle definitions…</p>
       ) : null}
@@ -329,52 +605,43 @@ export function App({ repository: initialRepository }: AppProps = {}) {
             className="outline-action"
             disabled={opening || !snapshot.update.canApply}
             type="button"
-            onClick={() => {
-              const controller = replaceController(definitionRequest);
-              setOpening(true);
-              void pickleSession
-                .applyCollectionSetup({
-                  signal: controller.signal,
-                  timeoutMs: 30_000,
-                })
-                .then(requireConnectOutcome)
-                .catch((reason) => setError(connectionIssue(reason)))
-                .finally(() => setOpening(false));
-            }}
+            onClick={() => void applyCollectionSetup()}
           >
             Update this collection
           </button>
         </section>
       ) : null}
       <div className="connection-actions">
-        {snapshot.connections
-          .filter(
-            (connection) =>
-              snapshot.status !== "setup_review_required" ||
-              connection.collectionId !== snapshot.collectionId,
-          )
-          .map((connection) => (
-            <button
-              key={connection.collectionId}
-              className="outline-action"
-              type="button"
-              onClick={() => {
-                setError(null);
-                pickleSession.select(connection.collectionId, {
-                  history: "replace",
-                });
-              }}
-            >
-              {snapshot.status === "setup_review_required" ? "Use " : "Open "}
-              {connection.displayName}
-            </button>
-          ))}
-        {snapshot.status !== "setup_review_required" ? (
+        {snapshot.status !== "start_failed" && snapshot.status !== "destroyed"
+          ? alternativeConnections.map((connection) => (
+              <button
+                key={connection.collectionId}
+                className="outline-action"
+                type="button"
+                onClick={() => {
+                  void selectCollection(connection.collectionId);
+                }}
+              >
+                {snapshot.status === "setup_review_required" ? "Use " : "Open "}
+                {connection.displayName}
+              </button>
+            ))
+          : null}
+        {snapshot.status === "start_failed" || startupRetry ? (
           <button
             className="outline-action"
-            disabled={opening}
             type="button"
-            onClick={connect}
+            onClick={() => void startSession()}
+          >
+            Retry opening Pickle
+          </button>
+        ) : snapshot.status !== "setup_review_required" &&
+          snapshot.status !== "destroyed" ? (
+          <button
+            className="outline-action"
+            disabled={opening || lifecyclePending}
+            type="button"
+            onClick={() => void connect()}
           >
             {opening
               ? "Opening mdbase…"
@@ -386,9 +653,11 @@ export function App({ repository: initialRepository }: AppProps = {}) {
           </button>
         ) : null}
         <small>
-          {snapshot.status === "setup_review_required"
-            ? "Update this collection or choose one of your other connected collections."
-            : "Pickle never asks for a server address, collection path, or network token."}
+          {snapshot.status === "destroyed"
+            ? "This session cannot be restarted after it has been closed."
+            : snapshot.status === "setup_review_required"
+              ? "Update this collection or choose one of your other connected collections."
+              : "Pickle never asks for a server address, collection path, or network token."}
         </small>
       </div>
     </main>
@@ -434,4 +703,8 @@ function abortController(
   reason: string,
 ): void {
   reference.current?.abort(reason);
+}
+
+function authorizationCallbackKey(url: string): string {
+  return new URL(url).searchParams.get("state") ?? url;
 }

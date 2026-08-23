@@ -109,6 +109,11 @@ test("recovers one exact response after the authority response is lost", async (
   injectLoss = false;
   await page.unrouteAll({ behavior: "wait" });
   await page.reload();
+  await expect(page.getByText("Response awaiting confirmation")).toBeVisible();
+  await expect(page.getByText("Response recorded")).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Resume response" }).click();
+
   await expect(
     page.getByText("Response awaiting confirmation"),
   ).not.toBeVisible();

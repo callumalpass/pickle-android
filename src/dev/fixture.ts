@@ -222,11 +222,16 @@ export class FixturePickleRepository implements PickleRepository {
     } as PickleResponseSubmission;
   }
 
-  pendingResponse(): PicklePendingResponse | null {
-    return null;
+  pendingResponses(): readonly PicklePendingResponse[] {
+    return [];
   }
 
-  async recoverResponse(): Promise<PickleResponseSubmission> {
+  async recoverResponse(
+    requestId: string,
+    options?: ConnectRequestOptions,
+  ): Promise<PickleResponseSubmission> {
+    void requestId;
+    void options;
     throw new Error("The fixture has no pending response.");
   }
 

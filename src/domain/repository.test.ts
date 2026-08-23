@@ -2,6 +2,8 @@ import type {
   CollectionFileDescriptor,
   MdbaseConnection,
 } from "@mdbase-dev/connect";
+import { connectSuccess } from "@mdbase-dev/connect-testing";
+import type { PicklePendingResponse } from "@mdbase-dev/pickle";
 import { describe, expect, it, vi } from "vitest";
 
 import { ConnectedPickleRepository } from "./repository";
@@ -121,5 +123,46 @@ describe("ConnectedPickleRepository attachments", () => {
         filename: "missing.pdf",
       }),
     ).resolves.toBeNull();
+  });
+});
+
+describe("ConnectedPickleRepository response recovery", () => {
+  it("exposes every authority-backed pending response in creation order", async () => {
+    const recover = vi
+      .fn()
+      .mockResolvedValue(
+        connectSuccess({ path: "responses/one.md", frontmatter: {} }),
+      );
+    const newer = {
+      requestId: "response-two",
+      operation: "create",
+      createdAt: "2026-08-05T00:00:00.000Z",
+      recover: vi.fn(),
+    } as unknown as PicklePendingResponse;
+    const older = {
+      requestId: "response-one",
+      operation: "create",
+      createdAt: "2026-08-04T00:00:00.000Z",
+      recover,
+    } as unknown as PicklePendingResponse;
+    const connection = {
+      collectionId: "collection-1",
+      info: () => ({ authority: { kind: "hosted" } }),
+      pendingMutations: () => [newer, older],
+      pendingMutation: (requestId: string) =>
+        requestId === older.requestId ? older : newer,
+    } as unknown as MdbaseConnection;
+    const repository = new ConnectedPickleRepository(connection);
+
+    expect(
+      repository.pendingResponses().map(({ requestId }) => requestId),
+    ).toEqual(["response-one", "response-two"]);
+    await expect(
+      repository.recoverResponse("response-one"),
+    ).resolves.toMatchObject({
+      kind: "recorded",
+      record: { path: "responses/one.md" },
+    });
+    expect(recover).toHaveBeenCalledWith({ timeoutMs: 20_000 });
   });
 });

@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import type { ConnectRequestOptions } from "@mdbase-dev/connect";
+import type { PickleResponseSubmission } from "@mdbase-dev/pickle";
 import {
   act,
   fireEvent,
@@ -96,39 +97,76 @@ describe("Pickle inbox", () => {
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:fixture-image");
   });
 
-  it("shows and resumes the exact pending response after reopening", async () => {
+  it("only resumes the exact pending response after explicit confirmation", async () => {
     const repository = new FixturePickleRepository();
-    const pending = {
-      requestId: "pending-response-id",
-      operation: "create" as const,
-      fingerprint: "fingerprint",
-      status: "outcome_unknown" as const,
-      createdAt: "2026-08-04T00:00:00.000Z",
-      recover: vi.fn(),
-    };
-    vi.spyOn(repository, "pendingResponse").mockReturnValue(pending);
-    let finishRecovery: ((value: never) => void) | undefined;
-    const recovery = vi.spyOn(repository, "recoverResponse").mockReturnValue(
-      new Promise((resolve) => {
-        finishRecovery = resolve as (value: never) => void;
-      }),
-    );
+    const pending = [
+      {
+        requestId: "pending-response-one",
+        operation: "create" as const,
+        fingerprint: "fingerprint-one",
+        status: "outcome_unknown" as const,
+        createdAt: "2026-08-04T00:00:00.000Z",
+        recover: vi.fn(),
+      },
+      {
+        requestId: "pending-response-two",
+        operation: "create" as const,
+        fingerprint: "fingerprint-two",
+        status: "outcome_unknown" as const,
+        createdAt: "2026-08-05T00:00:00.000Z",
+        recover: vi.fn(),
+      },
+    ];
+    vi.spyOn(repository, "pendingResponses").mockImplementation(() => pending);
+    const finishRecovery = new Map<
+      string,
+      (value: PickleResponseSubmission) => void
+    >();
+    const recovery = vi
+      .spyOn(repository, "recoverResponse")
+      .mockImplementation(
+        (requestId: string) =>
+          new Promise<PickleResponseSubmission>((resolve) =>
+            finishRecovery.set(requestId, resolve),
+          ),
+      );
 
     render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
 
     expect(
       await screen.findByText("Response awaiting confirmation"),
     ).toBeVisible();
-    expect(recovery).toHaveBeenCalledWith("pending-response-id", {
+    expect(recovery).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Resume response" }));
+
+    expect(recovery).toHaveBeenCalledWith("pending-response-one", {
       signal: expect.any(AbortSignal),
       timeoutMs: 20_000,
     });
 
     await act(async () => {
-      finishRecovery?.({
+      pending.shift();
+      finishRecovery.get("pending-response-one")?.({
         kind: "recorded",
         record: { path: "responses/one.md", frontmatter: {} },
-      } as never);
+      } as PickleResponseSubmission);
+    });
+
+    expect(screen.getByText("Response awaiting confirmation")).toBeVisible();
+    expect(recovery).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Resume response" }));
+    expect(recovery).toHaveBeenLastCalledWith("pending-response-two", {
+      signal: expect.any(AbortSignal),
+      timeoutMs: 20_000,
+    });
+    await act(async () => {
+      pending.shift();
+      finishRecovery.get("pending-response-two")?.({
+        kind: "recorded",
+        record: { path: "responses/two.md", frontmatter: {} },
+      } as PickleResponseSubmission);
     });
 
     await waitFor(() =>
@@ -167,6 +205,49 @@ describe("Pickle inbox", () => {
     act(() => callbacks.get("appStateChange")?.({ isActive: false }));
 
     expect(loadSignal?.aborted).toBe(true);
+  });
+
+  it("ignores a recovery completion after foreground work is cancelled", async () => {
+    const callbacks = new Map<string, (value: unknown) => void>();
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true);
+    vi.spyOn(pickleNotifications, "start").mockResolvedValue(undefined);
+    nativeApp.addListener.mockImplementation(
+      (eventName: string, callback: (value: unknown) => void) => {
+        callbacks.set(eventName, callback);
+        return Promise.resolve({ remove: vi.fn() });
+      },
+    );
+    const repository = new FixturePickleRepository();
+    const pending = {
+      requestId: "cancelled-recovery",
+      operation: "create" as const,
+      fingerprint: "cancelled",
+      status: "outcome_unknown" as const,
+      createdAt: "2026-08-04T00:00:00.000Z",
+      recover: vi.fn(),
+    };
+    vi.spyOn(repository, "pendingResponses").mockReturnValue([pending]);
+    let finishRecovery!: (value: PickleResponseSubmission) => void;
+    vi.spyOn(repository, "recoverResponse").mockReturnValue(
+      new Promise((resolve) => {
+        finishRecovery = resolve;
+      }),
+    );
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Resume response" }),
+    );
+
+    act(() => callbacks.get("appStateChange")?.({ isActive: false }));
+    await act(async () =>
+      finishRecovery({
+        kind: "recorded",
+        record: { path: "responses/stale.md", frontmatter: {} },
+      } as PickleResponseSubmission),
+    );
+
+    expect(screen.getByText("Response awaiting confirmation")).toBeVisible();
+    expect(screen.queryByText("Response recorded")).toBeNull();
   });
 
   it("renders a collection-defined choice form and validates required fields", async () => {

@@ -33,7 +33,7 @@ export interface PickleRepository {
     payload: JsonObject,
     options?: ConnectRequestOptions,
   ): Promise<PickleResponseSubmission>;
-  pendingResponse(): PicklePendingResponse | null;
+  pendingResponses(): readonly PicklePendingResponse[];
   recoverResponse(
     requestId: string,
     options?: ConnectRequestOptions,
@@ -84,11 +84,9 @@ export class ConnectedPickleRepository implements PickleRepository {
     );
   }
 
-  pendingResponse(): PicklePendingResponse | null {
-    return (
-      [...this.collection.pendingResponses()].sort((left, right) =>
-        right.createdAt.localeCompare(left.createdAt),
-      )[0] ?? null
+  pendingResponses(): readonly PicklePendingResponse[] {
+    return [...this.collection.pendingResponses()].sort((left, right) =>
+      left.createdAt.localeCompare(right.createdAt),
     );
   }
 

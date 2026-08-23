@@ -112,7 +112,7 @@ export function PickleApp({
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [pendingResponseId, setPendingResponseId] = useState<string | null>(
-    () => repository.pendingResponse()?.requestId ?? null,
+    () => repository.pendingResponses()[0]?.requestId ?? null,
   );
   const [pendingResponseIssue, setPendingResponseIssue] = useState<
     string | null
@@ -176,9 +176,13 @@ export function PickleApp({
 
   const recoverPendingResponse = useCallback(
     async (parentSignal?: AbortSignal) => {
-      const pending = repository.pendingResponse();
+      const pending = repository
+        .pendingResponses()
+        .find((candidate) => candidate.requestId === pendingResponseId);
       if (!pending) {
-        setPendingResponseId(null);
+        setPendingResponseId(
+          repository.pendingResponses()[0]?.requestId ?? null,
+        );
         setPendingResponseIssue(null);
         return;
       }
@@ -192,6 +196,12 @@ export function PickleApp({
           signal: controller.signal,
           timeoutMs: 20_000,
         });
+        if (
+          responseRequest.current !== controller ||
+          controller.signal.aborted
+        ) {
+          return;
+        }
         if (submission.kind === "pending") {
           setPendingResponseId(submission.requestId);
           setPendingResponseIssue(
@@ -199,7 +209,9 @@ export function PickleApp({
           );
           return;
         }
-        setPendingResponseId(null);
+        setPendingResponseId(
+          repository.pendingResponses()[0]?.requestId ?? null,
+        );
         setPendingResponseIssue(null);
         setToast("Response recorded");
         await load(true, parentSignal);
@@ -211,7 +223,7 @@ export function PickleApp({
           setRecoveringResponse(false);
       }
     },
-    [load, repository],
+    [load, pendingResponseId, repository],
   );
 
   const exitRequestDetail = useCallback((restoreScroll: boolean) => {
@@ -246,7 +258,6 @@ export function PickleApp({
       const controller = new AbortController();
       foregroundRequest.current = controller;
       queueMicrotask(() => void load(true, controller.signal));
-      queueMicrotask(() => void recoverPendingResponse(controller.signal));
       unsubscribe = repository.subscribe(
         () => void load(true, controller.signal),
         (problem) => {
@@ -297,7 +308,7 @@ export function PickleApp({
       document.removeEventListener("visibilitychange", visibility);
       void appState?.then((handle) => handle.remove());
     };
-  }, [exitRequestDetail, load, recoverPendingResponse, repository]);
+  }, [exitRequestDetail, load, repository]);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -472,7 +483,7 @@ export function PickleApp({
               <strong>Response awaiting confirmation</strong>
               <p>
                 {pendingResponseIssue ??
-                  "Pickle saved this exact response and is checking whether the collection recorded it."}
+                  "Pickle saved this exact response. Resume it to check whether the collection recorded it."}
               </p>
             </div>
             <button
