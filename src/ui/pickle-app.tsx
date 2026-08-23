@@ -27,7 +27,14 @@ import {
   Sun,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import markUrl from "../assets/pickle-mark.svg";
 import { connectProblemFromError } from "../cloud/outcome";
@@ -40,6 +47,23 @@ import { ResponseForm } from "./response-form";
 import { Attachments } from "./attachments";
 import { Markdown } from "./markdown";
 import { applyTheme, currentTheme, type Theme } from "./theme";
+
+interface HistoryDetailState {
+  pickle_request?: string;
+}
+
+function detailMarker(): string | null {
+  if (Capacitor.isNativePlatform()) return null;
+  const state = history.state as HistoryDetailState | null;
+  return typeof state?.pickle_request === "string"
+    ? state.pickle_request
+    : null;
+}
+
+function withDetailMarker(requestId: string): HistoryDetailState {
+  const state = (history.state ?? {}) as Record<string, unknown>;
+  return { ...state, pickle_request: requestId };
+}
 
 type View = "inbox" | "history" | "settings";
 type RequestView = Exclude<View, "settings">;
@@ -99,10 +123,28 @@ export function PickleApp({
   const responseRequest = useRef<AbortController | null>(null);
   const foregroundRequest = useRef<AbortController | null>(null);
   const navigationState = useRef({ selectedId, view });
+  const requestsRef = useRef<PickleRequest[]>([]);
+  const listScrollPosition = useRef(0);
+  const restoreListScroll = useRef(false);
 
   useEffect(() => {
     navigationState.current = { selectedId, view };
   }, [selectedId, view]);
+
+  useEffect(() => {
+    requestsRef.current = requests;
+  }, [requests]);
+
+  useLayoutEffect(() => {
+    if (selectedId !== null) {
+      window.scrollTo({ top: 0 });
+      document.querySelector(".detail-pane")?.scrollTo({ top: 0 });
+      return;
+    }
+    const top = restoreListScroll.current ? listScrollPosition.current : 0;
+    restoreListScroll.current = false;
+    window.scrollTo({ top });
+  }, [selectedId]);
 
   const load = useCallback(
     async (quiet = false, parentSignal?: AbortSignal) => {
@@ -172,6 +214,30 @@ export function PickleApp({
     [load, repository],
   );
 
+  const exitRequestDetail = useCallback((restoreScroll: boolean) => {
+    if (navigationState.current.selectedId === null && !detailMarker()) return;
+    restoreListScroll.current = restoreScroll;
+    navigationState.current = { ...navigationState.current, selectedId: null };
+    setSelectedId(null);
+    if (detailMarker()) history.back();
+  }, []);
+
+  const openRequest = useCallback((requestId: string) => {
+    if (navigationState.current.selectedId === null)
+      listScrollPosition.current = window.scrollY;
+    restoreListScroll.current = false;
+    if (!Capacitor.isNativePlatform()) {
+      if (detailMarker())
+        history.replaceState(withDetailMarker(requestId), "", location.href);
+      else history.pushState(withDetailMarker(requestId), "", location.href);
+    }
+    navigationState.current = {
+      ...navigationState.current,
+      selectedId: requestId,
+    };
+    setSelectedId(requestId);
+  }, []);
+
   useEffect(() => {
     let unsubscribe: () => void = () => undefined;
     const startForeground = () => {
@@ -192,7 +258,7 @@ export function PickleApp({
         .start(
           () => {
             setView("inbox");
-            setSelectedId(null);
+            exitRequestDetail(false);
             setQuery("");
             setFilters((current) => ({
               ...current,
@@ -231,26 +297,47 @@ export function PickleApp({
       document.removeEventListener("visibilitychange", visibility);
       void appState?.then((handle) => handle.remove());
     };
-  }, [load, recoverPendingResponse, repository]);
+  }, [exitRequestDetail, load, recoverPendingResponse, repository]);
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    const listener = CapacitorApp.addListener("backButton", () => {
-      const current = navigationState.current;
-      if (current.selectedId) {
-        navigationState.current = { ...current, selectedId: null };
-        setSelectedId(null);
+    if (Capacitor.isNativePlatform()) {
+      const listener = CapacitorApp.addListener("backButton", () => {
+        const current = navigationState.current;
+        if (current.selectedId) {
+          exitRequestDetail(true);
+          return;
+        }
+        if (current.view !== "inbox") {
+          navigationState.current = { ...current, view: "inbox" };
+          setView("inbox");
+          return;
+        }
+        void CapacitorApp.minimizeApp();
+      });
+      return () => void listener.then((handle) => handle.remove());
+    }
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state as HistoryDetailState | null;
+      const marker =
+        typeof state?.pickle_request === "string" ? state.pickle_request : null;
+      if (marker) {
+        if (
+          marker === navigationState.current.selectedId ||
+          !requestsRef.current.some((request) => request.id === marker)
+        )
+          return;
+        navigationState.current = {
+          ...navigationState.current,
+          selectedId: marker,
+        };
+        setSelectedId(marker);
         return;
       }
-      if (current.view !== "inbox") {
-        navigationState.current = { ...current, view: "inbox" };
-        setView("inbox");
-        return;
-      }
-      void CapacitorApp.minimizeApp();
-    });
-    return () => void listener.then((handle) => handle.remove());
-  }, []);
+      exitRequestDetail(true);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [exitRequestDetail]);
 
   useEffect(() => {
     if (!toast) return;
@@ -346,6 +433,7 @@ export function PickleApp({
   const inboxCount = pendingCount + conflictCount;
 
   function navigate(next: View) {
+    exitRequestDetail(false);
     setView(next);
     setSelectedId(null);
     setQuery("");
@@ -582,7 +670,7 @@ export function PickleApp({
                             key={request.id}
                             request={request}
                             selected={request.id === selectedId}
-                            onSelect={() => setSelectedId(request.id)}
+                            onSelect={() => openRequest(request.id)}
                           />
                         ))}
                       </div>
@@ -603,7 +691,7 @@ export function PickleApp({
                 <RequestDetail
                   request={selected}
                   repository={repository}
-                  onBack={() => setSelectedId(null)}
+                  onBack={() => exitRequestDetail(true)}
                   onRespond={async (payload) => {
                     responseRequest.current?.abort(
                       "A newer Pickle response started",

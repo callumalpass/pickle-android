@@ -326,4 +326,52 @@ describe("Pickle inbox", () => {
       ),
     ).toHaveLength(1);
   });
+
+  it("opens request detail at the top and restores list scroll on browser back", async () => {
+    history.replaceState(null, "", "/");
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      value: 412,
+    });
+    const scrollSpy = vi.spyOn(window, "scrollTo");
+    render(
+      <PickleApp
+        repository={new FixturePickleRepository()}
+        onDisconnect={vi.fn()}
+      />,
+    );
+    scrollSpy.mockClear();
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Approve production deployment" }),
+    ).toBeVisible();
+    const marker = history.state as { pickle_request?: string };
+    expect(typeof marker.pickle_request).toBe("string");
+    expect(scrollSpy).toHaveBeenCalledWith({ top: 0 });
+
+    await act(async () => {
+      history.back();
+    });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("heading", {
+          name: "Approve production deployment",
+        }),
+      ).toBeNull(),
+    );
+
+    expect(
+      screen.getByRole("button", { name: /Approve production deployment/ }),
+    ).toBeVisible();
+    expect(scrollSpy).toHaveBeenCalledWith({ top: 412 });
+    scrollSpy.mockRestore();
+    delete (window as { scrollY?: unknown }).scrollY;
+    history.replaceState(null, "", "/");
+  });
 });

@@ -1,5 +1,7 @@
 import { Capacitor } from "@capacitor/core";
-import type { MdbaseAppManifest } from "@mdbase-dev/connect";
+import type { MdbaseAppManifest, MdbaseConnection } from "@mdbase-dev/connect";
+import { capabilityOperations } from "@mdbase-dev/connect-protocol";
+import type { PickleFrontmatter } from "@mdbase-dev/pickle";
 import { connectSuccess } from "@mdbase-dev/connect-testing";
 import {
   act,
@@ -59,6 +61,7 @@ describe("Pickle connection", () => {
 
   afterEach(() => {
     localStorage.clear();
+    history.replaceState(null, "", "/");
     pickleSession.clearSelection({ history: "replace" });
     vi.restoreAllMocks();
     nativeApp.addListener.mockReset();
@@ -160,5 +163,69 @@ describe("Pickle connection", () => {
     expect(
       screen.getByText("Continue to mdbase when you are ready to try again."),
     ).toBeVisible();
+  });
+
+  it("keeps the selected collection when a history traversal drops it", async () => {
+    const manifest = bundledManifest as MdbaseAppManifest;
+    const operations = [
+      ...new Set(
+        [
+          ...manifest.requirements!.capabilities!.required,
+          ...(manifest.requirements!.capabilities!.optional ?? []),
+        ].flatMap(
+          (id) =>
+            capabilityOperations(
+              id as Parameters<typeof capabilityOperations>[0],
+            ) as string[],
+        ),
+      ),
+    ];
+    const fakeInfo = {
+      authority: { kind: "connector" },
+      operations,
+      scope: { access: "full_collection" },
+      fileCapability: { actions: ["list", "read"] },
+    } as unknown as ReturnType<MdbaseConnection<PickleFrontmatter>["info"]>;
+    const fakeConnection = {
+      collectionId: "guard-test-collection",
+      info: () => fakeInfo,
+      authorizationCapabilities: () => ({
+        sufficient: true,
+        grantedOperations: operations,
+        missingOperations: [],
+      }),
+      assessCollectionSetup: () =>
+        Promise.resolve(
+          connectSuccess({
+            status: "current",
+            applicable: true,
+            typePacks: [],
+          } as never),
+        ),
+      onConnectionChange: () => () => undefined,
+      pendingMutations: () => [],
+      pendingMutation: () => null,
+      watch: () => new Promise<never>(() => undefined),
+    } as unknown as MdbaseConnection<PickleFrontmatter>;
+    vi.spyOn(pickleConnect, "connections").mockReturnValue([fakeInfo as never]);
+    vi.spyOn(pickleConnect, "connection").mockReturnValue(fakeConnection);
+    history.replaceState(null, "", "/?collection=guard-test-collection");
+    pickleSession.select("guard-test-collection", { history: "replace" });
+
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Inbox" })).toBeVisible();
+
+    act(() => {
+      history.pushState(null, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+    });
+
+    expect(new URLSearchParams(location.search).get("collection")).toBe(
+      "guard-test-collection",
+    );
+    expect(
+      screen.queryByRole("heading", { name: "Open your decision inbox." }),
+    ).toBeNull();
+    expect(screen.getByRole("heading", { name: "Inbox" })).toBeVisible();
   });
 });

@@ -70,6 +70,38 @@ export function App({ repository: initialRepository }: AppProps = {}) {
   const definitionRequest = useRef<AbortController | null>(null);
   const authorizationPending = useRef(false);
   const handledCallbacks = useRef(new Set<string>());
+  const lastReadyCollectionId = useRef<string | null>(null);
+  const suppressSelectionRestore = useRef(false);
+
+  useEffect(() => {
+    if (snapshot.status === "ready") {
+      lastReadyCollectionId.current = snapshot.collectionId;
+      return;
+    }
+    if (snapshot.status !== "unselected") {
+      lastReadyCollectionId.current = null;
+      return;
+    }
+    if (suppressSelectionRestore.current) {
+      suppressSelectionRestore.current = false;
+      return;
+    }
+    const collectionId = lastReadyCollectionId.current;
+    if (!collectionId) return;
+    pickleSession.select(collectionId, { history: "replace" });
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (!usesSession) return;
+    const handlePopState = () => {
+      const collectionId = lastReadyCollectionId.current;
+      if (!collectionId) return;
+      if (new URLSearchParams(window.location.search).has("collection")) return;
+      pickleSession.select(collectionId, { history: "replace" });
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [usesSession]);
 
   const completeNative = useCallback(async (url: string) => {
     if (!isNativeMdbaseCallback(url)) return;
@@ -180,6 +212,7 @@ export function App({ repository: initialRepository }: AppProps = {}) {
           usesSession
             ? () => {
                 setError(null);
+                suppressSelectionRestore.current = true;
                 pickleSession.clearSelection({ history: "replace" });
               }
             : undefined
@@ -192,6 +225,8 @@ export function App({ repository: initialRepository }: AppProps = {}) {
             .catch(() => undefined)
             .finally(() => {
               pickleSession.forget(selectedCollectionId);
+              lastReadyCollectionId.current = null;
+              suppressSelectionRestore.current = true;
               setError(null);
             });
         }}
