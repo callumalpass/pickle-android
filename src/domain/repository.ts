@@ -24,6 +24,10 @@ export interface PickleRepository {
   readonly collectionId: string;
   readonly authority: "hosted" | "connector" | "fixture";
   list(options?: ConnectRequestOptions): Promise<PickleRequest[]>;
+  readBody(
+    request: Pick<PickleRequest, "path">,
+    options?: ConnectRequestOptions,
+  ): Promise<string>;
   readAttachment(
     attachment: PickleAttachment,
     options?: ConnectRequestOptions,
@@ -59,7 +63,20 @@ export class ConnectedPickleRepository implements PickleRepository {
   }
 
   list(options: ConnectRequestOptions = {}): Promise<PickleRequest[]> {
-    return this.collection.list(withTimeout(options, READ_TIMEOUT_MS));
+    return this.collection.list({
+      ...withTimeout(options, READ_TIMEOUT_MS),
+      includeBody: false,
+    });
+  }
+
+  readBody(
+    request: Pick<PickleRequest, "path">,
+    options: ConnectRequestOptions = {},
+  ): Promise<string> {
+    return this.collection.readBody(
+      request,
+      withTimeout(options, READ_TIMEOUT_MS),
+    );
   }
 
   readAttachment(
