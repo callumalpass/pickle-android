@@ -674,7 +674,7 @@ describe("Pickle connection", () => {
       displayName: "Guard test collection",
       authority: { kind: "connector" },
       operations,
-      scope: { access: "full_collection" },
+      scope: { access: "full_collection", contracts: [] },
       fileCapability: { actions: ["list", "read"] },
     } as unknown as ReturnType<MdbaseConnection<PickleFrontmatter>["info"]>;
     const fakeConnection = {

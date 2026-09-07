@@ -119,6 +119,9 @@ export function PickleApp({
   >(null);
   const [recoveringResponse, setRecoveringResponse] = useState(false);
   const loadSequence = useRef(0);
+  const loadFlight = useRef<{ queued: boolean; promise: Promise<void> } | null>(
+    null,
+  );
   const loadRequest = useRef<AbortController | null>(null);
   const responseRequest = useRef<AbortController | null>(null);
   const foregroundRequest = useRef<AbortController | null>(null);
@@ -147,29 +150,53 @@ export function PickleApp({
   }, [selectedId]);
 
   const load = useCallback(
-    async (quiet = false, parentSignal?: AbortSignal) => {
+    (quiet = false, parentSignal?: AbortSignal): Promise<void> => {
+      if (parentSignal?.aborted) return Promise.resolve();
+      if (!quiet) setRefreshing(true);
+      if (loadFlight.current && !loadRequest.current?.signal.aborted) {
+        loadFlight.current.queued = true;
+        return loadFlight.current.promise;
+      }
       const sequence = ++loadSequence.current;
-      loadRequest.current?.abort("A newer Pickle load started");
       const controller = linkedController(parentSignal);
       loadRequest.current = controller;
-      if (!quiet) setRefreshing(true);
-      try {
-        const current = await repository.list({
-          signal: controller.signal,
-          timeoutMs: 10_000,
-        });
-        if (sequence !== loadSequence.current) return;
-        setRequests(current);
-        setError(null);
-      } catch (reason) {
-        if (sequence === loadSequence.current && !controller.signal.aborted)
-          setError(issueMessage(reason));
-      } finally {
-        if (sequence === loadSequence.current) {
-          setLoading(false);
-          setRefreshing(false);
+      const flight = { queued: false, promise: Promise.resolve() };
+      loadFlight.current = flight;
+      flight.promise = (async () => {
+        try {
+          do {
+            flight.queued = false;
+            try {
+              const current = await repository.list({
+                signal: controller.signal,
+                timeoutMs: 10_000,
+              });
+              if (
+                sequence !== loadSequence.current ||
+                controller.signal.aborted
+              )
+                return;
+              setRequests(current);
+              setError(null);
+              setLoading(false);
+            } catch (reason) {
+              if (
+                sequence !== loadSequence.current ||
+                controller.signal.aborted
+              )
+                return;
+              setError(issueMessage(reason));
+            }
+          } while (flight.queued && !controller.signal.aborted);
+        } finally {
+          if (sequence === loadSequence.current) {
+            loadFlight.current = null;
+            setLoading(false);
+            setRefreshing(false);
+          }
         }
-      }
+      })();
+      return flight.promise;
     },
     [repository],
   );
@@ -253,7 +280,11 @@ export function PickleApp({
   useEffect(() => {
     let unsubscribe: () => void = () => undefined;
     const startForeground = () => {
-      foregroundRequest.current?.abort("Pickle foreground restarted");
+      if (
+        foregroundRequest.current &&
+        !foregroundRequest.current.signal.aborted
+      )
+        return;
       unsubscribe();
       const controller = new AbortController();
       foregroundRequest.current = controller;
@@ -700,6 +731,7 @@ export function PickleApp({
             <aside className="detail-pane" aria-label="Request detail">
               {selected ? (
                 <RequestDetail
+                  key={selected.id}
                   request={selected}
                   repository={repository}
                   onBack={() => exitRequestDetail(true)}
@@ -827,7 +859,7 @@ function RequestRow({
         </span>
         <strong className="request-title">{request.title}</strong>
         <span className="request-message">
-          {request.message || request.body || "No request message"}
+          {request.message || request.body || "Open to read request context"}
         </span>
         <span className="request-metadata">
           {request.priority !== "normal" ? (
@@ -878,8 +910,35 @@ function RequestDetail({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [context, setContext] = useState<{
+    key: string;
+    body?: string;
+    error?: string;
+  } | null>(null);
+  const [contextAttempt, setContextAttempt] = useState(0);
+  const { path, modifiedAt, body: inlineBody } = request;
+  const contextKey = JSON.stringify([path, modifiedAt]);
+  const body =
+    inlineBody || (context?.key === contextKey ? (context.body ?? null) : null);
+  const contextError = context?.key === contextKey ? context.error : undefined;
+
+  useEffect(() => {
+    if (inlineBody) return;
+    const controller = new AbortController();
+    void repository
+      .readBody({ path }, { signal: controller.signal, timeoutMs: 10_000 })
+      .then((body) => {
+        if (!controller.signal.aborted) setContext({ key: contextKey, body });
+      })
+      .catch((reason) => {
+        if (!controller.signal.aborted)
+          setContext({ key: contextKey, error: issueMessage(reason) });
+      });
+    return () => controller.abort("Request context closed");
+  }, [repository, path, inlineBody, contextKey, contextAttempt]);
 
   async function respond(payload: JsonObject) {
+    if (body === null) return;
     setBusy(true);
     setError(null);
     try {
@@ -938,10 +997,29 @@ function RequestDetail({
           </div>
         </dl>
 
-        {request.body ? (
+        {body === null ? (
+          <section aria-label="Context">
+            {contextError ? (
+              <div role="alert">
+                <p>Could not load request context. {contextError}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContext(null);
+                    setContextAttempt((value) => value + 1);
+                  }}
+                >
+                  Retry context
+                </button>
+              </div>
+            ) : (
+              <p role="status">Loading request context…</p>
+            )}
+          </section>
+        ) : body ? (
           <section className="request-body" aria-label="Context">
             <p className="eyebrow">Context</p>
-            <Markdown source={request.body} />
+            <Markdown source={body} />
           </section>
         ) : null}
 
@@ -984,7 +1062,11 @@ function RequestDetail({
 
         {request.state === "pending" ? (
           request.responseTypeDefinition ? (
-            <ResponseForm busy={busy} request={request} onSubmit={respond} />
+            <ResponseForm
+              busy={busy || body === null}
+              request={request}
+              onSubmit={respond}
+            />
           ) : (
             <p className="inline-error">
               This collection does not provide the required response type.
