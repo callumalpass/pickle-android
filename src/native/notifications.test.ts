@@ -55,7 +55,13 @@ describe("Pickle native notifications", () => {
     }));
 
     await notifications.start(vi.fn());
+    expect(notifications.current()).toBe("off");
+    expect(push.register).not.toHaveBeenCalled();
+    expect(register).not.toHaveBeenCalled();
+    expect(push.requestPermissions).not.toHaveBeenCalled();
+
     await notifications.enable();
+    expect(push.register).toHaveBeenCalledOnce();
     callbacks.get("registration")?.({ value: "fcm-token" } as never);
     await vi.waitFor(() => expect(register).toHaveBeenCalled());
 

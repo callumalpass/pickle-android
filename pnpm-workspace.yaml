@@ -1,7 +1,9 @@
 overrides:
-  "@mdbase-dev/connect": "file:vendor/mdbase-dev-connect-0.1.0-beta.85-61daa25dfbb6.tgz"
-  "@mdbase-dev/connect-protocol": "file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.85-61daa25dfbb6.tgz"
-  "@mdbase-dev/pickle": "file:vendor/mdbase-dev-pickle-0.1.0-beta.85-61daa25dfbb6.tgz"
+  "@mdbase-dev/connect": "file:vendor/mdbase-dev-connect-0.1.0-beta.96-43c3dedd61bb.tgz"
+  "@mdbase-dev/connect-protocol": "file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.96-43c3dedd61bb.tgz"
+  "@mdbase-dev/connect-dev": "file:vendor/mdbase-dev-connect-dev-0.1.0-beta.96-43c3dedd61bb.tgz"
+  "@mdbase-dev/connect-testing": "file:vendor/mdbase-dev-connect-testing-0.1.0-beta.96-43c3dedd61bb.tgz"
+  "@mdbase-dev/pickle": "file:vendor/mdbase-dev-pickle-0.1.0-beta.96-43c3dedd61bb.tgz"
 
 allowBuilds:
   sharp: true

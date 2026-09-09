@@ -124,11 +124,15 @@ describe("Pickle mdbase connection", () => {
 
   it("requests read-only attachment access inside the attachment folder", () => {
     expect(bundledManifest.requirements.files).toEqual({
-      actions: ["list", "read"],
+      required: ["list", "read"],
       scope: { kind: "selected_folders", folders: ["attachments"] },
     });
-    expect(bundledManifest.requirements.capabilities.required).toEqual(
-      expect.arrayContaining(["files.list", "files.read"]),
-    );
+  });
+
+  it("requests only v2 collection reading and response creation", () => {
+    expect(bundledManifest.requirements.capabilities).toEqual({
+      contract_version: 2,
+      required: ["collection.read", "records.create"],
+    });
   });
 });
