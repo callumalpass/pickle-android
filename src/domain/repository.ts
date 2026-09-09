@@ -15,6 +15,8 @@ import {
 } from "@mdbase-dev/pickle";
 
 const READ_TIMEOUT_MS = 10_000;
+// Connect applies one budget to the entire paginated query.
+const LIST_TIMEOUT_MS = 60_000;
 const WRITE_TIMEOUT_MS = 20_000;
 const WATCH_START_TIMEOUT_MS = 10_000;
 
@@ -64,7 +66,7 @@ export class ConnectedPickleRepository implements PickleRepository {
 
   list(options: ConnectRequestOptions = {}): Promise<PickleRequest[]> {
     return this.collection.list({
-      ...withTimeout(options, READ_TIMEOUT_MS),
+      ...withTimeout(options, LIST_TIMEOUT_MS),
       includeBody: false,
     });
   }

@@ -151,14 +151,15 @@ export function PickleApp({
 
   const load = useCallback(
     (quiet = false, parentSignal?: AbortSignal): Promise<void> => {
-      if (parentSignal?.aborted) return Promise.resolve();
+      const signal = parentSignal ?? foregroundRequest.current?.signal;
+      if (signal?.aborted) return Promise.resolve();
       if (!quiet) setRefreshing(true);
       if (loadFlight.current && !loadRequest.current?.signal.aborted) {
         loadFlight.current.queued = true;
         return loadFlight.current.promise;
       }
       const sequence = ++loadSequence.current;
-      const controller = linkedController(parentSignal);
+      const controller = linkedController(signal);
       loadRequest.current = controller;
       const flight = { queued: false, promise: Promise.resolve() };
       loadFlight.current = flight;
@@ -169,7 +170,6 @@ export function PickleApp({
             try {
               const current = await repository.list({
                 signal: controller.signal,
-                timeoutMs: 10_000,
               });
               if (
                 sequence !== loadSequence.current ||
@@ -189,6 +189,7 @@ export function PickleApp({
             }
           } while (flight.queued && !controller.signal.aborted);
         } finally {
+          controller.abort("Pickle load finished");
           if (sequence === loadSequence.current) {
             loadFlight.current = null;
             setLoading(false);
@@ -1498,11 +1499,14 @@ function problemMessage(problem: ConnectProblem): string {
 function linkedController(parentSignal?: AbortSignal): AbortController {
   const controller = new AbortController();
   if (parentSignal?.aborted) controller.abort(parentSignal.reason);
-  else
-    parentSignal?.addEventListener(
+  else if (parentSignal) {
+    const abort = () => controller.abort(parentSignal.reason);
+    parentSignal.addEventListener("abort", abort, { once: true });
+    controller.signal.addEventListener(
       "abort",
-      () => controller.abort(parentSignal.reason),
+      () => parentSignal.removeEventListener("abort", abort),
       { once: true },
     );
+  }
   return controller;
 }

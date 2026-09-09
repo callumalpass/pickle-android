@@ -31,6 +31,47 @@ describe("Pickle inbox", () => {
     nativeApp.minimizeApp.mockReset();
   });
 
+  it("discards cancelled reads and queued refreshes when returning to the foreground", async () => {
+    const repository = new FixturePickleRepository();
+    const requests = await repository.list();
+    let changed = () => undefined as void;
+    vi.spyOn(repository, "subscribe").mockImplementation((onChange) => {
+      changed = onChange;
+      return vi.fn();
+    });
+    const finish: Array<(value: typeof requests) => void> = [];
+    const signals: Array<AbortSignal | undefined> = [];
+    const list = vi
+      .spyOn(repository, "list")
+      .mockImplementation((options: ConnectRequestOptions = {}) => {
+        signals.push(options.signal);
+        return new Promise((resolve) => finish.push(resolve));
+      });
+    const visibility = vi.spyOn(document, "visibilityState", "get");
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    act(() => {
+      changed();
+      visibility.mockReturnValue("hidden");
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(signals[0]?.aborted).toBe(true);
+    act(() => {
+      visibility.mockReturnValue("visible");
+      document.dispatchEvent(new Event("visibilitychange"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    await act(async () => finish[1](requests));
+    await act(async () => finish[0]([]));
+    expect(
+      screen.getByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    ).toBeVisible();
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
   it("finishes an active load and coalesces change bursts into one follow-up", async () => {
     const repository = new FixturePickleRepository();
     const rows = await repository.list();
