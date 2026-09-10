@@ -31,6 +31,254 @@ describe("Pickle inbox", () => {
     nativeApp.minimizeApp.mockReset();
   });
 
+  it("discards cancelled reads and queued refreshes when returning to the foreground", async () => {
+    const repository = new FixturePickleRepository();
+    const requests = await repository.list();
+    let changed = () => undefined as void;
+    vi.spyOn(repository, "subscribe").mockImplementation((onChange) => {
+      changed = onChange;
+      return vi.fn();
+    });
+    const finish: Array<(value: typeof requests) => void> = [];
+    const signals: Array<AbortSignal | undefined> = [];
+    const list = vi
+      .spyOn(repository, "list")
+      .mockImplementation((options: ConnectRequestOptions = {}) => {
+        signals.push(options.signal);
+        return new Promise((resolve) => finish.push(resolve));
+      });
+    const visibility = vi.spyOn(document, "visibilityState", "get");
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    act(() => {
+      changed();
+      visibility.mockReturnValue("hidden");
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(signals[0]?.aborted).toBe(true);
+    act(() => {
+      visibility.mockReturnValue("visible");
+      document.dispatchEvent(new Event("visibilitychange"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    await act(async () => finish[1](requests));
+    await act(async () => finish[0]([]));
+    expect(
+      screen.getByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    ).toBeVisible();
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it("finishes an active load and coalesces change bursts into one follow-up", async () => {
+    const repository = new FixturePickleRepository();
+    const rows = await repository.list();
+    let finish!: (value: typeof rows) => void;
+    let signal: AbortSignal | undefined;
+    const list = vi
+      .spyOn(repository, "list")
+      .mockImplementationOnce((options?: ConnectRequestOptions) => {
+        signal = options?.signal;
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      });
+    let changed!: () => void;
+    vi.spyOn(repository, "subscribe").mockImplementation((onChange) => {
+      changed = onChange;
+      return () => undefined;
+    });
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    act(() => {
+      changed();
+      changed();
+      changed();
+    });
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(signal?.aborted).toBe(false);
+    await act(async () => {
+      finish(rows);
+    });
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    expect(
+      await screen.findByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    ).toBeVisible();
+  });
+
+  it("runs a queued refresh even when the active read fails", async () => {
+    const repository = new FixturePickleRepository();
+    let fail!: (reason: Error) => void;
+    const list = vi.spyOn(repository, "list").mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = reject;
+        }),
+    );
+    let changed!: () => void;
+    vi.spyOn(repository, "subscribe").mockImplementation((onChange) => {
+      changed = onChange;
+      return () => undefined;
+    });
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+    act(() => changed());
+    await act(async () => {
+      fail(new Error("First read timed out"));
+    });
+    expect(
+      await screen.findByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    ).toBeVisible();
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("First read timed out")).not.toBeInTheDocument();
+  });
+
+  it("loads context only when opened and prevents responding until it arrives", async () => {
+    const repository = new FixturePickleRepository();
+    const rows = (await repository.list()).map((request) => ({
+      ...request,
+      body: "",
+    }));
+    vi.spyOn(repository, "list").mockResolvedValue(rows);
+    let finish!: (body: string) => void;
+    const readBody = vi.spyOn(repository, "readBody").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    const row = await screen.findByRole("button", {
+      name: /Approve production deployment/,
+    });
+    expect(readBody).not.toHaveBeenCalled();
+    fireEvent.click(row);
+    expect(screen.getByText("Loading request context…")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    await act(async () => {
+      finish("Context fetched on demand.");
+    });
+    expect(screen.getByText("Context fetched on demand.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
+  });
+
+  it("ignores context from a closed request even if its transport finishes late", async () => {
+    const repository = new FixturePickleRepository();
+    const rows = (await repository.list()).map((request) => ({
+      ...request,
+      body: "",
+    }));
+    vi.spyOn(repository, "list").mockResolvedValue(rows);
+    let finish!: (body: string) => void;
+    let signal: AbortSignal | undefined;
+    vi.spyOn(repository, "readBody").mockImplementation(
+      (_request, options?: ConnectRequestOptions) => {
+        signal = options?.signal;
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      },
+    );
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Back to requests" }));
+    expect(signal?.aborted).toBe(true);
+    await act(async () => {
+      finish("Obsolete context");
+    });
+    expect(screen.queryByText("Obsolete context")).not.toBeInTheDocument();
+  });
+
+  it("keeps reading unchanged context through inbox refreshes", async () => {
+    const repository = new FixturePickleRepository();
+    const rows = (await repository.list()).map((request) => ({
+      ...request,
+      body: "",
+      modifiedAt: "2026-09-07T00:00:00Z",
+    }));
+    const list = vi
+      .spyOn(repository, "list")
+      .mockImplementation(async () => structuredClone(rows));
+    let changed!: () => void;
+    vi.spyOn(repository, "subscribe").mockImplementation((onChange) => {
+      changed = onChange;
+      return () => undefined;
+    });
+    let finish!: (body: string) => void;
+    let signal: AbortSignal | undefined;
+    const readBody = vi
+      .spyOn(repository, "readBody")
+      .mockImplementation((_request, options?: ConnectRequestOptions) => {
+        signal = options?.signal;
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      });
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    );
+    await act(async () => {
+      changed();
+    });
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    expect(readBody).toHaveBeenCalledTimes(1);
+    expect(signal?.aborted).toBe(false);
+    await act(async () => {
+      finish("Stable context");
+    });
+    expect(screen.getByText("Stable context")).toBeVisible();
+    rows.find((request) => request.id === "req-deploy")!.modifiedAt =
+      "2026-09-07T00:01:00Z";
+    await act(async () => {
+      changed();
+    });
+    await waitFor(() => expect(readBody).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    expect(screen.queryByText("Stable context")).not.toBeInTheDocument();
+    await act(async () => {
+      finish("Updated context");
+    });
+    expect(screen.getByText("Updated context")).toBeVisible();
+  });
+
+  it("keeps failed context explicit and retries without reloading the inbox", async () => {
+    const repository = new FixturePickleRepository();
+    const rows = (await repository.list()).map((request) => ({
+      ...request,
+      body: "",
+    }));
+    const list = vi.spyOn(repository, "list").mockResolvedValue(rows);
+    vi.spyOn(repository, "readBody")
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue("Recovered context");
+    render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Approve production deployment/,
+      }),
+    );
+    expect(
+      await screen.findByText(/Could not load request context/),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry context" }));
+    expect(await screen.findByText("Recovered context")).toBeVisible();
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+
   it("loads pending requests and records a typed approval response", async () => {
     const repository = new FixturePickleRepository();
     render(<PickleApp repository={repository} onDisconnect={vi.fn()} />);

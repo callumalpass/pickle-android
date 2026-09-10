@@ -169,6 +169,13 @@ export class FixturePickleRepository implements PickleRepository {
   private requests = structuredClone(samples);
   private listeners = new Set<() => void>();
 
+  async readBody(request: Pick<PickleRequest, "path">): Promise<string> {
+    return (
+      this.requests.find((candidate) => candidate.path === request.path)
+        ?.body ?? ""
+    );
+  }
+
   async list(): Promise<PickleRequest[]> {
     return structuredClone(this.requests);
   }

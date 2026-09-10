@@ -3,7 +3,10 @@ import type {
   MdbaseConnection,
 } from "@mdbase-dev/connect";
 import { connectSuccess } from "@mdbase-dev/connect-testing";
-import type { PicklePendingResponse } from "@mdbase-dev/pickle";
+import {
+  PickleCollection,
+  type PicklePendingResponse,
+} from "@mdbase-dev/pickle";
 import { describe, expect, it, vi } from "vitest";
 
 import { ConnectedPickleRepository } from "./repository";
@@ -164,5 +167,48 @@ describe("ConnectedPickleRepository response recovery", () => {
       record: { path: "responses/one.md" },
     });
     expect(recover).toHaveBeenCalledWith({ timeoutMs: 20_000 });
+  });
+});
+
+describe("ConnectedPickleRepository loading", () => {
+  it("keeps body-free bounded queries and allows a longer whole-query budget", async () => {
+    // Exercise Pickle's forwarding into Connect without duplicating its contract.
+    const describe = vi
+      .spyOn(PickleCollection.prototype, "describe")
+      .mockResolvedValue({
+        collection: {},
+        contract: { implementations: [] },
+      } as unknown as Awaited<ReturnType<PickleCollection["describe"]>>);
+    const queryAll = vi.fn().mockResolvedValue(connectSuccess({ results: [] }));
+    const connection = {
+      collectionId: "collection-1",
+      info: () => ({ authority: { kind: "hosted" } }),
+      queryAll,
+    } as unknown as MdbaseConnection;
+    const repository = new ConnectedPickleRepository(connection);
+    const controller = new AbortController();
+    try {
+      await expect(
+        repository.list({ signal: controller.signal }),
+      ).resolves.toEqual([]);
+      expect(queryAll).toHaveBeenLastCalledWith(
+        expect.objectContaining({ includeBody: false }),
+        {
+          signal: controller.signal,
+          timeoutMs: 60_000,
+          pageSize: 256,
+        },
+      );
+      await repository.list({ timeoutMs: 5_000 });
+      expect(queryAll).toHaveBeenLastCalledWith(
+        expect.objectContaining({ includeBody: false }),
+        {
+          timeoutMs: 5_000,
+          pageSize: 256,
+        },
+      );
+    } finally {
+      describe.mockRestore();
+    }
   });
 });
