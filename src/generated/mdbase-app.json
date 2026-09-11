@@ -17,21 +17,11 @@
       }
     ],
     "capabilities": {
-      "contract_version": 1,
-      "required": [
-        "collection.inspect",
-        "records.watch",
-        "records.read",
-        "records.query",
-        "records.create",
-        "files.list",
-        "files.read",
-        "collection.setup.apply"
-      ],
-      "optional": ["notifications.background-delivery"]
+      "contract_version": 2,
+      "required": ["collection.read", "records.create"]
     },
     "files": {
-      "actions": ["list", "read"],
+      "required": ["list", "read"],
       "scope": { "kind": "selected_folders", "folders": ["attachments"] }
     },
     "access": "full_collection"

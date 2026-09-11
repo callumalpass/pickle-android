@@ -5,7 +5,6 @@ import type {
   MdbaseAppManifest,
   MdbaseConnection,
 } from "@mdbase-dev/connect";
-import { capabilityOperations } from "@mdbase-dev/connect-protocol";
 import type { PickleFrontmatter } from "@mdbase-dev/pickle";
 import { connectSuccess } from "@mdbase-dev/connect-testing";
 import {
@@ -655,19 +654,20 @@ describe("Pickle connection", () => {
   });
 
   it("keeps the selected collection when a history traversal drops it", async () => {
-    const manifest = bundledManifest as MdbaseAppManifest;
+    // Model the complete v2 read/create grant plus declaration-derived setup.
     const operations = [
-      ...new Set(
-        [
-          ...manifest.requirements!.capabilities!.required,
-          ...(manifest.requirements!.capabilities!.optional ?? []),
-        ].flatMap(
-          (id) =>
-            capabilityOperations(
-              id as Parameters<typeof capabilityOperations>[0],
-            ) as string[],
-        ),
-      ),
+      "describe",
+      "changes",
+      "read",
+      "query",
+      "list_views",
+      "execute_view",
+      "read_view_source",
+      "validate",
+      "read_type",
+      "create",
+      "assess_collection_setup",
+      "apply_collection_setup",
     ];
     const fakeInfo = {
       collectionId: "guard-test-collection",
@@ -675,11 +675,21 @@ describe("Pickle connection", () => {
       authority: { kind: "connector" },
       operations,
       scope: { access: "full_collection", contracts: [] },
-      fileCapability: { actions: ["list", "read"] },
+      fileCapability: {
+        actions: ["list", "read"],
+        scope: { kind: "selected_folders", folders: ["attachments"] },
+      },
     } as unknown as ReturnType<MdbaseConnection<PickleFrontmatter>["info"]>;
     const fakeConnection = {
       collectionId: "guard-test-collection",
       info: () => fakeInfo,
+      describe: () =>
+        Promise.resolve(
+          connectSuccess({
+            collectionId: "guard-test-collection",
+            contracts: bundledManifest.requirements.contracts,
+          }),
+        ),
       authorizationCapabilities: () => ({
         sufficient: true,
         grantedOperations: operations,

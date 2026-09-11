@@ -5,9 +5,11 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  "@mdbase-dev/connect": file:vendor/mdbase-dev-connect-0.1.0-beta.94-2fd8f68d9bec.tgz
-  "@mdbase-dev/connect-protocol": file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.94-2fd8f68d9bec.tgz
-  "@mdbase-dev/pickle": file:vendor/mdbase-dev-pickle-0.1.0-beta.94-2fd8f68d9bec.tgz
+  "@mdbase-dev/connect": file:vendor/mdbase-dev-connect-0.1.0-beta.96-56ed32ffde05.tgz
+  "@mdbase-dev/connect-protocol": file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.96-56ed32ffde05.tgz
+  "@mdbase-dev/connect-dev": file:vendor/mdbase-dev-connect-dev-0.1.0-beta.96-56ed32ffde05.tgz
+  "@mdbase-dev/connect-testing": file:vendor/mdbase-dev-connect-testing-0.1.0-beta.96-56ed32ffde05.tgz
+  "@mdbase-dev/pickle": file:vendor/mdbase-dev-pickle-0.1.0-beta.96-56ed32ffde05.tgz
 
 importers:
   .:
@@ -34,14 +36,14 @@ importers:
         specifier: 5.3.0
         version: 5.3.0
       "@mdbase-dev/connect":
-        specifier: file:vendor/mdbase-dev-connect-0.1.0-beta.94-2fd8f68d9bec.tgz
-        version: file:vendor/mdbase-dev-connect-0.1.0-beta.94-2fd8f68d9bec.tgz
+        specifier: file:vendor/mdbase-dev-connect-0.1.0-beta.96-56ed32ffde05.tgz
+        version: file:vendor/mdbase-dev-connect-0.1.0-beta.96-56ed32ffde05.tgz
       "@mdbase-dev/connect-protocol":
-        specifier: file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.94-2fd8f68d9bec.tgz
-        version: file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.94-2fd8f68d9bec.tgz
+        specifier: file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.96-56ed32ffde05.tgz
+        version: file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.96-56ed32ffde05.tgz
       "@mdbase-dev/pickle":
-        specifier: file:vendor/mdbase-dev-pickle-0.1.0-beta.94-2fd8f68d9bec.tgz
-        version: file:vendor/mdbase-dev-pickle-0.1.0-beta.94-2fd8f68d9bec.tgz
+        specifier: file:vendor/mdbase-dev-pickle-0.1.0-beta.96-56ed32ffde05.tgz
+        version: file:vendor/mdbase-dev-pickle-0.1.0-beta.96-56ed32ffde05.tgz
       lucide-react:
         specifier: 1.25.0
         version: 1.25.0(react@19.2.8)
@@ -74,11 +76,11 @@ importers:
         specifier: 10.0.1
         version: 10.0.1(eslint@10.7.0(supports-color@5.5.0))
       "@mdbase-dev/connect-dev":
-        specifier: file:vendor/mdbase-dev-connect-dev-0.1.0-beta.94-2fd8f68d9bec.tgz
-        version: file:vendor/mdbase-dev-connect-dev-0.1.0-beta.94-2fd8f68d9bec.tgz
+        specifier: file:vendor/mdbase-dev-connect-dev-0.1.0-beta.96-56ed32ffde05.tgz
+        version: file:vendor/mdbase-dev-connect-dev-0.1.0-beta.96-56ed32ffde05.tgz
       "@mdbase-dev/connect-testing":
-        specifier: file:vendor/mdbase-dev-connect-testing-0.1.0-beta.94-2fd8f68d9bec.tgz
-        version: file:vendor/mdbase-dev-connect-testing-0.1.0-beta.94-2fd8f68d9bec.tgz
+        specifier: file:vendor/mdbase-dev-connect-testing-0.1.0-beta.96-56ed32ffde05.tgz
+        version: file:vendor/mdbase-dev-connect-testing-0.1.0-beta.96-56ed32ffde05.tgz
       "@playwright/test":
         specifier: 1.61.1
         version: 1.61.1
@@ -700,46 +702,46 @@ packages:
         integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==,
       }
 
-  "@mdbase-dev/connect-dev@file:vendor/mdbase-dev-connect-dev-0.1.0-beta.94-2fd8f68d9bec.tgz":
+  "@mdbase-dev/connect-dev@file:vendor/mdbase-dev-connect-dev-0.1.0-beta.96-56ed32ffde05.tgz":
     resolution:
       {
-        integrity: sha512-kageQIrOL6ihgPwhRGR+zVFAM/WXFUTZNLc4OAD71RDBp+bjVPCCZhWNAb3j5XV6nxepqr0XcdeOkoBXSwNDYA==,
-        tarball: file:vendor/mdbase-dev-connect-dev-0.1.0-beta.94-2fd8f68d9bec.tgz,
+        integrity: sha512-pL2RFzHeC0v7eHwweVtC1K9SW3suNJUEJ1rg18zicm5nkwYYwE3OUnlvhEqKPYgcEhZjfO5ZMgPNMK9semWWUA==,
+        tarball: file:vendor/mdbase-dev-connect-dev-0.1.0-beta.96-56ed32ffde05.tgz,
       }
-    version: 0.1.0-beta.94
+    version: 0.1.0-beta.96
     hasBin: true
 
-  "@mdbase-dev/connect-protocol@file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.94-2fd8f68d9bec.tgz":
+  "@mdbase-dev/connect-protocol@file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.96-56ed32ffde05.tgz":
     resolution:
       {
-        integrity: sha512-0GNrz7CWwDgDV+ddYeebZEZ5I9ADH26us5cdClaDNWIz5IOMJXrZYKbeyMNureEYY/2nVEkRbDlWirDXMZ0bPQ==,
-        tarball: file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.94-2fd8f68d9bec.tgz,
+        integrity: sha512-prz8clP0Vpu8HQ4ucr+ss4am2sLQpFTOjXBSRcaU8/RIdDM7tZurOYHP/y0LdDkViJ9pODfD6R82umpdvMQYhQ==,
+        tarball: file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.96-56ed32ffde05.tgz,
       }
-    version: 0.1.0-beta.94
+    version: 0.1.0-beta.96
 
-  "@mdbase-dev/connect-testing@file:vendor/mdbase-dev-connect-testing-0.1.0-beta.94-2fd8f68d9bec.tgz":
+  "@mdbase-dev/connect-testing@file:vendor/mdbase-dev-connect-testing-0.1.0-beta.96-56ed32ffde05.tgz":
     resolution:
       {
-        integrity: sha512-HrjaeXyzz17I+IDnfkY0+OYSdJTh7T5IbblWlvQk2P9fq3TxWRPNaIFauewnzMKaE4bi6xN+NAvTnfeOnwPbUg==,
-        tarball: file:vendor/mdbase-dev-connect-testing-0.1.0-beta.94-2fd8f68d9bec.tgz,
+        integrity: sha512-HFDlVZ8bcNGIcoez532kmdZ7XoXri4axn5n2PmType1zHQ48BbltKG1nR0BejlExMGPr6LopwotgbCNC3GuvEA==,
+        tarball: file:vendor/mdbase-dev-connect-testing-0.1.0-beta.96-56ed32ffde05.tgz,
       }
-    version: 0.1.0-beta.94
+    version: 0.1.0-beta.96
 
-  "@mdbase-dev/connect@file:vendor/mdbase-dev-connect-0.1.0-beta.94-2fd8f68d9bec.tgz":
+  "@mdbase-dev/connect@file:vendor/mdbase-dev-connect-0.1.0-beta.96-56ed32ffde05.tgz":
     resolution:
       {
-        integrity: sha512-zQ47K5CT9aX1pgtftpF4QQqLHVp8kDRQvXZJK77fECLivG05XL/dpibQXWWaCXjB9ZUewpaBo+bUBkVdMmyHYg==,
-        tarball: file:vendor/mdbase-dev-connect-0.1.0-beta.94-2fd8f68d9bec.tgz,
+        integrity: sha512-7k2TL4IVu4IyWSs+1DuSDrY/Vw0vAHlpgL3Zq9R/Bb1I61TMwTTQ2p/aYx400FT69qQGO1CA6SHs7oHNroHh5w==,
+        tarball: file:vendor/mdbase-dev-connect-0.1.0-beta.96-56ed32ffde05.tgz,
       }
-    version: 0.1.0-beta.94
+    version: 0.1.0-beta.96
 
-  "@mdbase-dev/pickle@file:vendor/mdbase-dev-pickle-0.1.0-beta.94-2fd8f68d9bec.tgz":
+  "@mdbase-dev/pickle@file:vendor/mdbase-dev-pickle-0.1.0-beta.96-56ed32ffde05.tgz":
     resolution:
       {
-        integrity: sha512-QFNmGRb5bUDl1wI7OpHXep7Qnx5Nz5i38rsvTkeRcvnNQMas+VlcTlQyYT9X35JnHZ8xpK7yRbrRIk6tnJ/z3g==,
-        tarball: file:vendor/mdbase-dev-pickle-0.1.0-beta.94-2fd8f68d9bec.tgz,
+        integrity: sha512-fl7uhVzCi8AiQOcOhYDQp6u6ReePBPCf3HFa21Wn779EASukVn+kS6j7wEIoUFw69lKCIiXTBtrrfoYnlIYKuw==,
+        tarball: file:vendor/mdbase-dev-pickle-0.1.0-beta.96-56ed32ffde05.tgz,
       }
-    version: 0.1.0-beta.94
+    version: 0.1.0-beta.96
 
   "@napi-rs/canvas-android-arm64@0.1.100":
     resolution:
@@ -5961,30 +5963,30 @@ snapshots:
       "@jridgewell/resolve-uri": 3.1.2
       "@jridgewell/sourcemap-codec": 1.5.5
 
-  "@mdbase-dev/connect-dev@file:vendor/mdbase-dev-connect-dev-0.1.0-beta.94-2fd8f68d9bec.tgz":
+  "@mdbase-dev/connect-dev@file:vendor/mdbase-dev-connect-dev-0.1.0-beta.96-56ed32ffde05.tgz":
     dependencies:
-      "@mdbase-dev/connect": file:vendor/mdbase-dev-connect-0.1.0-beta.94-2fd8f68d9bec.tgz
-      "@mdbase-dev/connect-protocol": file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.94-2fd8f68d9bec.tgz
+      "@mdbase-dev/connect": file:vendor/mdbase-dev-connect-0.1.0-beta.96-56ed32ffde05.tgz
+      "@mdbase-dev/connect-protocol": file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.96-56ed32ffde05.tgz
       ajv: 8.20.0
       yaml: 2.9.0
 
-  "@mdbase-dev/connect-protocol@file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.94-2fd8f68d9bec.tgz":
+  "@mdbase-dev/connect-protocol@file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.96-56ed32ffde05.tgz":
     dependencies:
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
 
-  "@mdbase-dev/connect-testing@file:vendor/mdbase-dev-connect-testing-0.1.0-beta.94-2fd8f68d9bec.tgz":
+  "@mdbase-dev/connect-testing@file:vendor/mdbase-dev-connect-testing-0.1.0-beta.96-56ed32ffde05.tgz":
     dependencies:
-      "@mdbase-dev/connect": file:vendor/mdbase-dev-connect-0.1.0-beta.94-2fd8f68d9bec.tgz
-      "@mdbase-dev/connect-protocol": file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.94-2fd8f68d9bec.tgz
+      "@mdbase-dev/connect": file:vendor/mdbase-dev-connect-0.1.0-beta.96-56ed32ffde05.tgz
+      "@mdbase-dev/connect-protocol": file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.96-56ed32ffde05.tgz
 
-  "@mdbase-dev/connect@file:vendor/mdbase-dev-connect-0.1.0-beta.94-2fd8f68d9bec.tgz":
+  "@mdbase-dev/connect@file:vendor/mdbase-dev-connect-0.1.0-beta.96-56ed32ffde05.tgz":
     dependencies:
-      "@mdbase-dev/connect-protocol": file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.94-2fd8f68d9bec.tgz
+      "@mdbase-dev/connect-protocol": file:vendor/mdbase-dev-connect-protocol-0.1.0-beta.96-56ed32ffde05.tgz
 
-  "@mdbase-dev/pickle@file:vendor/mdbase-dev-pickle-0.1.0-beta.94-2fd8f68d9bec.tgz":
+  "@mdbase-dev/pickle@file:vendor/mdbase-dev-pickle-0.1.0-beta.96-56ed32ffde05.tgz":
     dependencies:
-      "@mdbase-dev/connect": file:vendor/mdbase-dev-connect-0.1.0-beta.94-2fd8f68d9bec.tgz
+      "@mdbase-dev/connect": file:vendor/mdbase-dev-connect-0.1.0-beta.96-56ed32ffde05.tgz
 
   "@napi-rs/canvas-android-arm64@0.1.100":
     optional: true
